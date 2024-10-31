@@ -2,9 +2,10 @@
 #include <string.h>
 
 #include "dict.h"
+#include "list.h"
 
 int main(void) {
-    printf("Hello, World!\n");
+    printf("Testing dict\n");
 
     dict_t *dict = dict_create(10);
     if (dict == NULL) {
@@ -42,5 +43,45 @@ int main(void) {
     printf("Value 4: %s\n", v4);
 
     dict_free(dict);
+
+    printf("Testing list\n");
+
+    list_t *list = list_create();
+    if (list == NULL) {
+        fprintf(stderr, "Failed to create list\n");
+        return 1;
+    }
+
+    char *to_add_list = "value1";
+    if (list_add(list, to_add_list, strlen(to_add_list) + 1)) {
+        fprintf(stderr, "Failed to add value1\n");
+        return 1;
+    }
+
+    char *to_add_list2 = "value2";
+    if (list_add(list, to_add_list2, strlen(to_add_list2) + 1)) {
+        fprintf(stderr, "Failed to add value2\n");
+        return 1;
+    }
+
+    char *v5 = list_at(list, 0);
+    char *v6 = list_at(list, 1);
+
+    printf("Value 5: %s\n", v5);
+    printf("Value 6: %s\n", v6);
+
+    if (list_remove(list, 0)) {
+        fprintf(stderr, "Failed to remove value1\n");
+        return 1;
+    }
+
+    char *v7 = list_at(list, 0);
+    char *v8 = list_at(list, 1);
+
+    printf("Value 7: %s\n", v7);
+    printf("Value 8: %s\n", v8);
+
+    list_free(list);
+
     return 0;
 }

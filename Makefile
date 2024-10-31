@@ -26,6 +26,10 @@ $(OBJ_DIR): $(BUILD_DIR)
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
+.PHONY: valgrind
+valgrind: all
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $(BUILD_DIR)/$(BIN)
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
