@@ -3,6 +3,7 @@
 
 #include "dict.h"
 #include "list.h"
+#include "sha1.h"
 
 int main(void) {
     printf("Testing dict\n");
@@ -82,6 +83,23 @@ int main(void) {
     printf("Value 8: %s\n", v8);
 
     list_free(list);
+
+    printf("Testing sha1\n");
+
+    sha1_ctx_t *ctx = sha1_create();
+
+    char *data = "hello world";
+    sha1_update(ctx, (const uint8_t *)data, strlen(data));
+
+    uint8_t digest[SHA1_DIGEST_SIZE];
+    sha1_final(ctx, digest);
+
+    for (int i = 0; i < SHA1_DIGEST_SIZE; i++) {
+        printf("%02x", digest[i]);
+    }
+    printf("\n");
+
+    sha1_free(ctx);
 
     return 0;
 }
