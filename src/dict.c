@@ -22,6 +22,7 @@ struct dict {
     dict_entry_t **nodes;
     size_t size;
     size_t capacity;
+    void (*value_free)(void *);
 };
 
 static dict_entry_t *dict_entry_create(const char *key, void *value, size_t size) {
@@ -37,9 +38,6 @@ static dict_entry_t *dict_entry_create(const char *key, void *value, size_t size
     }
     strcpy(entry->key, key);
 
-    entry->size = size;
-    entry->next = NULL;
-
     entry->value = malloc(size);
     if (entry->value == NULL) {
         free(entry->key);
@@ -47,20 +45,24 @@ static dict_entry_t *dict_entry_create(const char *key, void *value, size_t size
         return NULL;
     }
 
-    if (value != NULL) {
-        memcpy(entry->value, value, size);
-    }
-
+    memcpy(entry->value, value, size);
+    entry->size = size;
+    entry->next = NULL;
     return entry;
 }
 
-static void dict_entry_free(dict_entry_t *entry) {
+static void dict_entry_free(const dict_t *dict, dict_entry_t *entry) {
     if (entry == NULL) {
         return;
     }
 
+    if (dict->value_free != NULL) {
+        dict->value_free(entry->value);
+    } else {
+        free(entry->value);
+    }
+
     free(entry->key);
-    free(entry->value);
     free(entry);
 }
 
@@ -95,7 +97,7 @@ static size_t dict_hash(const char *key) {
     return hash;
 }
 
-dict_t *dict_create(size_t capacity) {
+dict_t *dict_create(size_t capacity, void (*value_free)(void *)) {
     dict_t *dict = malloc(sizeof(dict_t));
     if (dict == NULL) {
         return NULL;
@@ -109,6 +111,7 @@ dict_t *dict_create(size_t capacity) {
 
     dict->size = 0;
     dict->capacity = capacity;
+    dict->value_free = value_free;
 
     return dict;
 }
@@ -122,7 +125,7 @@ void dict_free(dict_t *dict) {
         dict_entry_t *entry = dict->nodes[i];
         while (entry != NULL) {
             dict_entry_t *next = entry->next;
-            dict_entry_free(entry);
+            dict_entry_free(dict, entry);
             entry = next;
         }
     }
@@ -144,7 +147,7 @@ int dict_add(dict_t *dict, const char *key, void *value, size_t size) {
     }
 
     if (dict_get(dict, key) != NULL) {
-        if (dict_remove(dict, key) == -1) {
+        if (dict_remove(dict, key) == NULL) {
             return -1;
         }
     }
@@ -181,9 +184,9 @@ void *dict_get(dict_t *dict, const char *key) {
     return NULL;
 }
 
-int dict_remove(dict_t *dict, const char *key) {
+void *dict_remove(dict_t *dict, const char *key) {
     if (dict == NULL) {
-        return -1;
+        return NULL;
     }
 
     size_t idx = dict_hash(key) % dict->capacity;
@@ -198,15 +201,16 @@ int dict_remove(dict_t *dict, const char *key) {
                 prev->next = entry->next;
             }
 
-            dict_entry_free(entry);
+            void *value = entry->value;
+            dict_entry_free(dict, entry);
             dict->size--;
-            return 0;
+            return value;
         }
         prev = entry;
         entry = entry->next;
     }
 
-    return 0;
+    return NULL;
 }
 
 int dict_resize(dict_t *dict, size_t new_capacity) {
@@ -251,4 +255,44 @@ int dict_resize(dict_t *dict, size_t new_capacity) {
 
 size_t dict_size(dict_t *dict) {
     return dict->size;
+}
+
+const dict_iterator_t *dict_iterator_first(dict_t *dict) {
+    if (dict == NULL) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < dict->capacity; ++i) {
+        if (dict->nodes[i] != NULL) {
+            return (dict_iterator_t *)dict->nodes[i];
+        }
+    }
+
+    return NULL;
+}
+
+const dict_iterator_t *dict_iterator_next(dict_t *dict, const dict_iterator_t *iterator) {
+    if (iterator == NULL) {
+        return NULL;
+    }
+
+    if (((dict_entry_t *)iterator)->next != NULL) {
+        return ((dict_entry_t *)iterator)->next;
+    }
+
+    for (size_t i = dict_hash(((dict_entry_t *)iterator)->key) % dict->capacity + 1; i < dict->capacity; ++i) {
+        if (dict->nodes[i] != NULL) {
+            return (dict_iterator_t *)dict->nodes[i];
+        }
+    }
+
+    return NULL;
+}
+
+const char *dict_iterator_key(const dict_iterator_t *iterator) {
+    return ((dict_entry_t *)iterator)->key;
+}
+
+void *dict_iterator_value(const dict_iterator_t *iterator) {
+    return ((dict_entry_t *)iterator)->value;
 }

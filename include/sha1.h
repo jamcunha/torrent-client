@@ -45,4 +45,16 @@ void sha1_update(sha1_ctx_t *ctx, const uint8_t *data, size_t size);
  */
 void sha1_final(sha1_ctx_t *ctx, uint8_t digest[SHA1_DIGEST_SIZE]);
 
+/**
+ * @brief Compute the SHA1 digest of the data
+ *
+ * This function creates a new SHA1 context, updates it with the data, finalizes
+ * it and returns the digest.
+ *
+ * @param data The data
+ * @param size The size of the data
+ * @param digest The digest
+ */
+void sha1(const uint8_t *data, size_t size, uint8_t digest[SHA1_DIGEST_SIZE]);
+
 #endif // !SHA1_H

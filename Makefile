@@ -7,6 +7,9 @@ BIN=tc
 INC_DIR=include
 CFLAGS+=-I$(INC_DIR)
 
+# Debug
+CFLAGS+=-g
+
 OBJ_DIR=$(BUILD_DIR)/obj
 SRC_DIR=src
 

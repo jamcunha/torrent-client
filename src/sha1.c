@@ -177,3 +177,15 @@ void sha1_final(sha1_ctx_t *ctx, uint8_t digest[SHA1_DIGEST_SIZE]) {
             (uint8_t)((ctx->state[i >> 2] >> ((3 - (i & 3)) << 3)) & 0xFF);
     }
 }
+
+void sha1(const uint8_t *data, size_t size, uint8_t digest[SHA1_DIGEST_SIZE]) {
+    sha1_ctx_t *ctx = sha1_create();
+    if (ctx == NULL) {
+        return;
+    }
+
+    sha1_update(ctx, data, size);
+    sha1_final(ctx, digest);
+
+    sha1_free(ctx);
+}

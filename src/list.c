@@ -12,6 +12,7 @@ struct list {
     list_node_t *head;
     list_node_t *tail;
     size_t size;
+    void (*data_free)(void *);
 };
 
 static list_node_t *list_node_create(void *data, size_t size) {
@@ -32,7 +33,7 @@ static list_node_t *list_node_create(void *data, size_t size) {
     return node;
 }
 
-list_t *list_create(void) {
+list_t *list_create(void (*data_free)(void *)) {
     list_t *list = malloc(sizeof(list_t));
     if (list == NULL) {
         return NULL;
@@ -41,6 +42,7 @@ list_t *list_create(void) {
     list->head = NULL;
     list->tail = NULL;
     list->size = 0;
+    list->data_free = data_free;
     return list;
 }
 
@@ -52,7 +54,13 @@ void list_free(list_t *list) {
     list_node_t *current = list->head;
     while (current != NULL) {
         list_node_t *next = current->next;
-        free(current->data);
+
+        if (list->data_free != NULL) {
+            list->data_free(current->data);
+        } else {
+            free(current->data);
+        }
+
         free(current);
         current = next;
     }
@@ -60,7 +68,7 @@ void list_free(list_t *list) {
     free(list);
 }
 
-int list_add(list_t *list, void *element, size_t size) {
+int list_push(list_t *list, void *element, size_t size) {
     if (list == NULL) {
         return -1;
     }
@@ -111,9 +119,9 @@ int list_contains(list_t *list, void *element) {
     return 0;
 }
 
-int list_remove(list_t *list, size_t index) {
+void *list_remove(list_t *list, size_t index) {
     if (list == NULL || index >= list->size) {
-        return -1;
+        return NULL;
     }
 
     list_node_t *current = list->head;
@@ -133,10 +141,10 @@ int list_remove(list_t *list, size_t index) {
         list->tail = prev;
     }
 
-    free(current->data);
+    void *data = current->data;
     free(current);
     list->size--;
-    return 0;
+    return data;
 }
 
 size_t list_size(list_t *list) {
@@ -147,10 +155,10 @@ const list_iterator_t *list_iterator_first(list_t *list) {
     return list->head;
 }
 
-const list_iterator_t *list_iterator_next(list_iterator_t *iterator) {
+const list_iterator_t *list_iterator_next(const list_iterator_t *iterator) {
     return ((list_node_t *)iterator)->next;
 }
 
-void *list_iterator_get(list_iterator_t *iterator) {
+void *list_iterator_get(const list_iterator_t *iterator) {
     return ((list_node_t *)iterator)->data;
 }
