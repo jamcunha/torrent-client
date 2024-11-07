@@ -1,3 +1,5 @@
+#include "torrent_file.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -57,6 +59,14 @@ int main(int argc, char **argv) {
     }
 
     printf("Torrent file: %s\n", torrent_file);
+
+    bencode_node_t *node = torrent_file_parse(torrent_file);
+    if (node == NULL) {
+        printf("Failed to parse torrent file\n");
+        return 1;
+    }
+
+    bencode_free(node);
 
     return 0;
 }
