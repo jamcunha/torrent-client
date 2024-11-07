@@ -1,3 +1,4 @@
+#include "log.h"
 #include "torrent_file.h"
 
 #include <stdio.h>
@@ -23,6 +24,7 @@ void helper(const char *program_name) {
 
 int main(int argc, char **argv) {
     if (argc < 2) {
+        printf("Missing arguments\n\n");
         helper(argv[0]);
         return 1;
     }
@@ -53,20 +55,19 @@ int main(int argc, char **argv) {
     }
 
     if (torrent_file == NULL) {
-        printf("Missing torrent file\n");
+        printf("Missing torrent file\n\n");
         helper(program_name);
         return 1;
     }
 
-    printf("Torrent file: %s\n", torrent_file);
+    LOG_INFO("Parsing torrent file: %s", torrent_file);
 
     bencode_node_t *node = torrent_file_parse(torrent_file);
     if (node == NULL) {
-        printf("Failed to parse torrent file\n");
+        LOG_ERROR("Failed to parse torrent file");
         return 1;
     }
 
     bencode_free(node);
-
     return 0;
 }
