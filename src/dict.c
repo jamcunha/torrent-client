@@ -1,4 +1,5 @@
 #include "dict.h"
+#include "log.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -26,13 +27,17 @@ struct dict {
 };
 
 static dict_entry_t *dict_entry_create(const char *key, void *value, size_t size) {
+    LOG_DEBUG("Creating dictionary entry for key `%s`", key);
+
     dict_entry_t *entry = malloc(sizeof(dict_entry_t));
     if (entry == NULL) {
+        LOG_ERROR("Failed to allocate memory for dictionary entry");
         return NULL;
     }
 
     entry->key = malloc(strlen(key) + 1);
     if (entry->key == NULL) {
+        LOG_ERROR("Failed to allocate memory for dictionary entry key");
         free(entry);
         return NULL;
     }
@@ -40,6 +45,7 @@ static dict_entry_t *dict_entry_create(const char *key, void *value, size_t size
 
     entry->value = malloc(size);
     if (entry->value == NULL) {
+        LOG_ERROR("Failed to allocate memory for dictionary entry value");
         free(entry->key);
         free(entry);
         return NULL;
@@ -53,12 +59,15 @@ static dict_entry_t *dict_entry_create(const char *key, void *value, size_t size
 
 static void dict_entry_free(const dict_t *dict, dict_entry_t *entry) {
     if (entry == NULL) {
+        LOG_WARN("Trying to free NULL dictionary entry");
         return;
     }
 
     if (dict->value_free != NULL) {
+        LOG_DEBUG("Freeing dictionary entry value with custom free function");
         dict->value_free(entry->value);
     } else {
+        LOG_DEBUG("Freeing dictionary entry value with default free function");
         free(entry->value);
     }
 
@@ -100,11 +109,13 @@ static size_t dict_hash(const char *key) {
 dict_t *dict_create(size_t capacity, void (*value_free)(void *)) {
     dict_t *dict = malloc(sizeof(dict_t));
     if (dict == NULL) {
+        LOG_ERROR("Failed to allocate memory for dictionary");
         return NULL;
     }
 
     dict->nodes = calloc(capacity, sizeof(dict_entry_t *));
     if (dict->nodes == NULL) {
+        LOG_ERROR("Failed to allocate memory for dictionary nodes");
         free(dict);
         return NULL;
     }
@@ -113,11 +124,14 @@ dict_t *dict_create(size_t capacity, void (*value_free)(void *)) {
     dict->capacity = capacity;
     dict->value_free = value_free;
 
+    LOG_DEBUG("Created dictionary with capacity %zu", capacity);
+
     return dict;
 }
 
 void dict_free(dict_t *dict) {
     if (dict == NULL) {
+        
         return;
     }
 
@@ -136,6 +150,7 @@ void dict_free(dict_t *dict) {
 
 int dict_add(dict_t *dict, const char *key, void *value, size_t size) {
     if (dict == NULL) {
+        LOG_WARN("Trying to add entry to NULL dictionary");
         return -1;
     }
 
@@ -147,14 +162,17 @@ int dict_add(dict_t *dict, const char *key, void *value, size_t size) {
     }
 
     if (dict_get(dict, key) != NULL) {
+        LOG_DEBUG("Key `%s` already exists in dictionary, removing old entry", key);
         if (dict_remove(dict, key) == NULL) {
             return -1;
         }
     }
 
     if (dict->nodes[idx] == NULL) {
+        LOG_DEBUG("Adding entry with key `%s` to dictionary node %zu", key, idx);
         dict->nodes[idx] = entry;
     } else {
+        LOG_DEBUG("Colliding entry with key `%s` in dictionary node %zu", key, idx);
         dict_entry_t *current = dict->nodes[idx];
         while (current->next != NULL) {
             current = current->next;
@@ -168,10 +186,13 @@ int dict_add(dict_t *dict, const char *key, void *value, size_t size) {
 
 void *dict_get(dict_t *dict, const char *key) {
     if (dict == NULL) {
+        LOG_WARN("Trying to get entry from NULL dictionary");
         return NULL;
     }
 
     size_t idx = dict_hash(key) % dict->capacity;
+
+    LOG_DEBUG("Getting entry with key `%s` from dictionary node %zu", key, idx);
 
     dict_entry_t *entry = dict->nodes[idx];
     while (entry != NULL) {
@@ -186,15 +207,20 @@ void *dict_get(dict_t *dict, const char *key) {
 
 void *dict_remove(dict_t *dict, const char *key) {
     if (dict == NULL) {
+        LOG_WARN("Trying to remove entry from NULL dictionary");
         return NULL;
     }
 
     size_t idx = dict_hash(key) % dict->capacity;
 
+    LOG_DEBUG("Removing entry with key `%s` from dictionary node %zu", key, idx);
+
     dict_entry_t *entry = dict->nodes[idx];
     dict_entry_t *prev = NULL;
     while (entry != NULL) {
         if (strcmp(entry->key, key) == 0) {
+            LOG_DEBUG("Found entry with key `%s` in dictionary node %zu", key, idx);
+
             if (prev == NULL) {
                 dict->nodes[idx] = entry->next;
             } else {
@@ -215,13 +241,17 @@ void *dict_remove(dict_t *dict, const char *key) {
 
 int dict_resize(dict_t *dict, size_t new_capacity) {
     if (dict == NULL) {
+        LOG_WARN("Trying to resize NULL dictionary");
         return -1;
     }
 
     dict_entry_t **new_nodes = calloc(new_capacity, sizeof(dict_entry_t *));
     if (new_nodes == NULL) {
+        LOG_ERROR("Failed to allocate memory for new dictionary nodes");
         return -1;
     }
+
+    LOG_DEBUG("Rehashing dictionary with new capacity %zu", new_capacity);
 
     for (size_t i = 0; i < dict->capacity; ++i) {
         dict_entry_t *entry = dict->nodes[i];

@@ -71,6 +71,8 @@ void log_message(log_level_t level, const char *format, ...) {
     char time_buf[20];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm);
 
+    // TODO: add color only if the output is a terminal
+
     // If the log file is not set, print to stderr
     FILE *output = log.file ? log.file : stderr;
 

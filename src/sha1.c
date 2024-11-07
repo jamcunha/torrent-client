@@ -1,4 +1,5 @@
 #include "sha1.h"
+#include "log.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -74,6 +75,7 @@ static void sha1_transform(uint32_t state[5], const uint8_t block[64]) {
 sha1_ctx_t *sha1_create(void) {
     sha1_ctx_t *ctx = malloc(sizeof(sha1_ctx_t));
     if (ctx == NULL) {
+        LOG_ERROR("Failed to allocate memory for SHA-1 context");
         return NULL;
     }
 
@@ -96,6 +98,7 @@ void sha1_free(sha1_ctx_t *ctx) {
 
 void sha1_update(sha1_ctx_t *ctx, const uint8_t *data, size_t size) {
     if (ctx == NULL || data == NULL) {
+        LOG_WARN("Invalid SHA-1 context or data");
         return;
     }
 
@@ -136,6 +139,7 @@ void sha1_update(sha1_ctx_t *ctx, const uint8_t *data, size_t size) {
 
 void sha1_final(sha1_ctx_t *ctx, uint8_t digest[SHA1_DIGEST_SIZE]) {
     if (ctx == NULL || digest == NULL) {
+        LOG_WARN("Invalid SHA-1 context or digest");
         return;
     }
 
