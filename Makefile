@@ -16,8 +16,9 @@ SRC_DIR=src
 SRC=$(wildcard $(SRC_DIR)/*.c)
 OBJ=$(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC))
 
-.PHONY: all
-all: main.c $(OBJ) $(BUILD_DIR)
+TORRENT_FILE=torrent/example.torrent
+
+$(BUILD_DIR)/$(BIN): main.c $(OBJ) $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$(BIN) $(OBJ) $<
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(OBJ_DIR)
@@ -30,8 +31,8 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 .PHONY: valgrind
-valgrind: all
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $(BUILD_DIR)/$(BIN)
+valgrind: $(BUILD_DIR)/$(BIN)
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $< -t $(TORRENT_FILE)
 
 .PHONY: clean
 clean:
