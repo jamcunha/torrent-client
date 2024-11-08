@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <time.h>
+#include <unistd.h>
 
 struct log {
     log_level_t level;
@@ -71,13 +72,15 @@ void log_message(log_level_t level, const char *format, ...) {
     char time_buf[20];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm);
 
-    // TODO: add color only if the output is a terminal
-
     // If the log file is not set, print to stderr
     FILE *output = log.file ? log.file : stderr;
 
     // Print time and log level
-    fprintf(output, "[%s] %s[%s]%s ", time_buf, log_level_colour(level), log_level_to_string(level), log_level_colour_reset());
+    if (isatty(output->_fileno)) {
+        fprintf(output, "[%s] %s[%s]%s ", time_buf, log_level_colour(level), log_level_to_string(level), log_level_colour_reset());
+    } else {
+        fprintf(output, "[%s] [%s] ", time_buf, log_level_to_string(level));
+    }
 
     // Handle the variadic arguments
     va_list args;
