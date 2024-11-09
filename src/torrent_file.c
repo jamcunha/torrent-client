@@ -9,8 +9,6 @@ bencode_node_t *torrent_file_parse(const char *filename) {
         return NULL;
     }
 
-    LOG_DEBUG("Opening file `%s`", filename);
-
     FILE *fp = fopen(filename, "rb");
     if (fp == NULL) {
         LOG_ERROR("Failed to open file `%s` in read mode", filename);
@@ -21,7 +19,7 @@ bencode_node_t *torrent_file_parse(const char *filename) {
     size_t size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
-    LOG_DEBUG("Reading file `%s` of size %zu", filename, size);
+    LOG_DEBUG("[torrent_file.c] Reading file `%s` of size %zu", filename, size);
 
     char *data = malloc(size + 1);
     if (data == NULL) {
@@ -48,7 +46,7 @@ bencode_node_t *torrent_file_parse(const char *filename) {
         return NULL;
     }
 
-    LOG_DEBUG("Closing file `%s`", filename);
+    LOG_DEBUG("[torrent_file.c] Closing file `%s`", filename);
 
     free(data);
     fclose(fp);
