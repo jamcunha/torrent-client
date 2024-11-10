@@ -1,4 +1,5 @@
 #include "log.h"
+#include "torrent.h"
 #include "torrent_file.h"
 
 #include <stdio.h>
@@ -18,7 +19,7 @@ void helper(const char *program_name) {
     printf("Usage: %s -t <torrent file> [-o <output path>]\n", program_name);
     printf("Options:\n");
     printf("  -t <torrent file>  Torrent file to download\n");
-    printf("  -o <output path>   Output path (TODO)\n");
+    printf("  -o <output path>   Output path [default: $XDG_DOWNLOAD_DIR]\n");
     printf("  -h                 Show this help\n");
 }
 
@@ -33,9 +34,6 @@ int main(int argc, char **argv) {
 
     char *torrent_file = NULL;
     char *output_path = NULL;
-
-    // WARN: only for not getting an unsed variable warning
-    output_path = output_path ? output_path : "test";
 
     while (argc > 0) {
         char *arg = shift_args(&argc, &argv);
@@ -60,6 +58,16 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    if (output_path == NULL) {
+        output_path = getenv("XDG_DOWNLOAD_DIR");
+        LOG_INFO("Using default output path: %s", output_path);
+        if (output_path == NULL) {
+            LOG_ERROR("Failed to get XDG_DOWNLOAD_DIR, please provide an output path\n");
+            helper(program_name);
+            return 1;
+        }
+    }
+
     LOG_INFO("Parsing torrent file: %s", torrent_file);
 
     bencode_node_t *node = torrent_file_parse(torrent_file);
@@ -68,6 +76,14 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    torrent_t *torrent = torrent_create(node, output_path);
+    if (torrent == NULL) {
+        LOG_ERROR("Failed to create torrent");
+        bencode_free(node);
+        return 1;
+    }
     bencode_free(node);
+
+    torrent_free(torrent);
     return 0;
 }

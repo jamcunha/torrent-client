@@ -1,4 +1,5 @@
 #include "peer_id.h"
+#include "log.h"
 #include "unistd.h"
 
 #include <stdio.h>
@@ -25,5 +26,8 @@ char *generate_peer_id(void) {
 
     // Null terminate the string
     peer_id[20] = '\0';
+
+    LOG_INFO("Generated peer id: %s", peer_id);
+
     return peer_id;
 }

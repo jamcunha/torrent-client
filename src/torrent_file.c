@@ -11,7 +11,7 @@ bencode_node_t *torrent_file_parse(const char *filename) {
 
     FILE *fp = fopen(filename, "rb");
     if (fp == NULL) {
-        LOG_ERROR("Failed to open file `%s` in read mode", filename);
+        LOG_ERROR("[torrent_file.c] Failed to open file `%s` in read mode", filename);
         return NULL;
     }
 
