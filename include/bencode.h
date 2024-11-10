@@ -1,6 +1,7 @@
 #ifndef BENCODE_H
 #define BENCODE_H
 
+#include "byte_str.h"
 #include "dict.h"
 #include "list.h"
 #include "sha1.h"
@@ -18,7 +19,7 @@ typedef struct node {
     bencode_type_t type;
     union {
         int64_t i;
-        char *s;
+        byte_str_t *s;
         list_t *l;
         dict_t *d;
     } value;

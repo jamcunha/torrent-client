@@ -1,4 +1,5 @@
 #include "bencode.h"
+#include "byte_str.h"
 #include "dict.h"
 #include "list.h"
 #include "log.h"
@@ -61,15 +62,12 @@ static bencode_node_t *bencode_parse_str(const char *data, const char **endptr) 
         return NULL;
     }
 
-    node->value.s = malloc(len + 1);
+    node->value.s = byte_str_create((uint8_t *)*endptr, len);
     if (node->value.s == NULL) {
-        LOG_ERROR("[bencode.c] Failed to allocate memory for string of length %lu", len);
         free(node);
         return NULL;
     }
 
-    strncpy(node->value.s, *endptr, len);
-    node->value.s[len] = '\0';
     *endptr += len;
 
     return node;
@@ -197,7 +195,7 @@ static bencode_node_t *bencode_parse_dict(const char *data, const char **endptr)
 
         LOG_DEBUG("[bencode.c] Adding value of type %s to dictionary", bencode_type_to_string(value->type));
 
-        if (dict_add(node->value.d, key->value.s, value, sizeof(bencode_node_t))) {
+        if (dict_add(node->value.d, (char *)key->value.s->data, value, sizeof(bencode_node_t))) {
             dict_free(node->value.d);
             bencode_free(key);
             bencode_free(value);

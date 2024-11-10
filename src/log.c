@@ -76,7 +76,8 @@ void log_message(log_level_t level, const char *format, ...) {
     FILE *output = log.file ? log.file : stderr;
 
     // Print time and log level
-    if (isatty(output->_fileno)) {
+    // TODO: Should we always print to the terminal?
+    if (isatty(output->_fileno)) { // don't know why fileno() is not working
         fprintf(output, "[%s] %s[%s]%s ", time_buf, log_level_colour(level), log_level_to_string(level), log_level_colour_reset());
     } else {
         fprintf(output, "[%s] [%s] ", time_buf, log_level_to_string(level));

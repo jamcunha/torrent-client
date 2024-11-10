@@ -36,24 +36,23 @@ static void torrent_free_pieces(torrent_t *torrent) {
     torrent->num_pieces = 0;
 }
 
-static uint8_t **torrent_create_pieces_array(torrent_t *torrent, uint8_t *pieces_byte_str) {
+static uint8_t **torrent_create_pieces_array(torrent_t *torrent, byte_str_t *pieces_str) {
     if (torrent == NULL) {
         LOG_WARN("[torrent.c] Must provide a torrent");
         return NULL;
     }
 
-    if (pieces_byte_str == NULL) {
+    if (pieces_str == NULL) {
         LOG_WARN("[torrent.c] Must provide a pieces byte string");
         return NULL;
     }
 
-    size_t len = strlen((char *)pieces_byte_str);
-    if (len % SHA1_DIGEST_SIZE != 0) {
-        LOG_WARN("[torrent.c] Invalid pieces byte string, len %zu is not a multiple of %d", len, SHA1_DIGEST_SIZE);
+    if (pieces_str->len % SHA1_DIGEST_SIZE != 0) {
+        LOG_WARN("[torrent.c] Invalid pieces byte string, len %zu is not a multiple of %d", pieces_str->len, SHA1_DIGEST_SIZE);
         return NULL;
     }
 
-    torrent->num_pieces = len / SHA1_DIGEST_SIZE;
+    torrent->num_pieces = pieces_str->len / SHA1_DIGEST_SIZE;
 
     uint8_t **pieces = malloc(torrent->num_pieces * sizeof(uint8_t *));
     if (pieces == NULL) {
@@ -71,7 +70,7 @@ static uint8_t **torrent_create_pieces_array(torrent_t *torrent, uint8_t *pieces
             free(pieces);
             return NULL;
         }
-        memcpy(pieces[i], pieces_byte_str + i * SHA1_DIGEST_SIZE, SHA1_DIGEST_SIZE);
+        memcpy(pieces[i], pieces_str->data + i * SHA1_DIGEST_SIZE, SHA1_DIGEST_SIZE);
     }
 
     return pieces;
@@ -141,7 +140,7 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
                 return -1;
             }
 
-            char *path_part = path_part_node->value.s;
+            char *path_part = (char *)path_part_node->value.s->data;
             size_t part_len = strlen(path_part);
             if (path_len + part_len + 1 > 512) {
                 LOG_WARN("[torrent.c] Path is too long: %s", path);
@@ -197,13 +196,12 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
         return -1;
     }
 
-    // Get (char *) as byte string (uint8_t *)
-    uint8_t *pieces_byte_str = (uint8_t *)((bencode_node_t *)dict_get(info, "pieces"))->value.s;
-    if (pieces_byte_str == NULL) {
+    byte_str_t *pieces_str = (byte_str_t *)((bencode_node_t *)dict_get(info, "pieces"))->value.s;
+    if (pieces_str == NULL) {
         LOG_WARN("[torrent.c] Missing pieces key in torrent info");
         return -1;
     }
-    torrent->pieces = torrent_create_pieces_array(torrent, pieces_byte_str);
+    torrent->pieces = torrent_create_pieces_array(torrent, pieces_str);
 
     LOG_DEBUG("[torrent.c] Torrent has %zu pieces", torrent->num_pieces);
 
@@ -223,7 +221,7 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
         torrent_free_pieces(torrent);
         return -1;
     }
-    char *name = name_node->value.s;
+    char *name = (char *)name_node->value.s->data;
 
     char *path = calloc(strlen(output_path) + strlen(name) + 2, sizeof(char));
     if (path == NULL) {
@@ -301,7 +299,14 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
     
     LOG_DEBUG("[torrent.c] Getting announce key from torrent file");
 
-    char *announce = (char *)((bencode_node_t *)dict_get(node->value.d, "announce"))->value.s;
+    bencode_node_t *announce_node = (bencode_node_t *)dict_get(node->value.d, "announce");
+    if (announce_node == NULL) {
+        LOG_WARN("[torrent.c] Missing announce key in torrent file");
+        free(torrent);
+        return NULL;
+    }
+
+    char *announce = (char *)announce_node->value.s->data;
     if (announce == NULL) {
         LOG_WARN("[torrent.c] Missing announce key in torrent file");
         free(torrent);
@@ -330,7 +335,7 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
 
     bencode_node_t *comment_node = (bencode_node_t *)dict_get(node->value.d, "comment");
     if (comment_node != NULL) {
-        char *comment = (char *)comment_node->value.s;
+        char *comment = (char *)comment_node->value.s->data;
         torrent->comment = calloc(strlen(comment) + 1, sizeof(char));
         if (torrent->comment == NULL) {
             LOG_ERROR("[torrent.c] Failed to allocate memory for comment");
@@ -349,7 +354,7 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
 
     bencode_node_t *created_by_node = (bencode_node_t *)dict_get(node->value.d, "created by");
     if (created_by_node != NULL) {
-        char *created_by = (char *)created_by_node->value.s;
+        char *created_by = (char *)created_by_node->value.s->data;
         torrent->created_by = calloc(strlen(created_by) + 1, sizeof(char));
         if (torrent->created_by == NULL) {
             LOG_ERROR("[torrent.c] Failed to allocate memory for created by");

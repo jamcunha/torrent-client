@@ -1,7 +1,7 @@
 #ifndef DICT_H
 #define DICT_H
 
-#include "stdlib.h"
+#include <stdlib.h>
 
 typedef struct dict dict_t;
 
@@ -118,7 +118,7 @@ const char *dict_iterator_key(const dict_iterator_t *iterator);
  */
 void *dict_iterator_value(const dict_iterator_t *iterator);
 
-// macro to iterate over the dictionary (mainly used for debugging and freeing custom elements)
+// macro to iterate over the dictionary (mainly used for debugging)
 #define DICT_FOREACH(key, val, dict) \
     for (const dict_iterator_t *iter = dict_iterator_first(dict); \
             iter != NULL && (key = dict_iterator_key(iter)) && (val = dict_iterator_value(iter)); \

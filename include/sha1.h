@@ -1,8 +1,8 @@
 #ifndef SHA1_H
 #define SHA1_H
 
-#include "stdlib.h"
 #include <stdint.h>
+#include <stdlib.h>
 
 #define SHA1_DIGEST_SIZE 20
 
