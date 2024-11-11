@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #define FILE_CHUNK_SIZE 1024
 
@@ -89,24 +91,9 @@ void file_free(file_t *file) {
     free(file);
 }
 
-#ifdef _WIN32
-    #include <direct.h>
-    #include <windows.h>
-
-    #define mkdir _mkdir
-#else
-    #include <sys/stat.h>
-    #include <sys/types.h>
-#endif
-
 bool dir_exists(const char *path) {
-#ifdef _WIN32
-    DWORD attrib = GetFileAttributes(path);
-    return (attrib != INVALID_FILE_ATTRIBUTES && (attrib & FILE_ATTRIBUTE_DIRECTORY));
-#else
     struct stat sb;
     return stat(path, &sb) == 0 && S_ISDIR(sb.st_mode);
-#endif
 }
 
 int create_dir(const char *path) {
@@ -122,10 +109,6 @@ int create_dir(const char *path) {
 
     LOG_DEBUG("[file.c] Creating directory `%s`", path);
 
-#ifdef _WIN32
-    return _mkdir(path);
-#else
     // rwxr-xr-x
     return mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-#endif
 }
