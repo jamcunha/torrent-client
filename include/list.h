@@ -99,10 +99,4 @@ const list_iterator_t *list_iterator_next(const list_iterator_t *iterator);
  */
 void *list_iterator_get(const list_iterator_t *iterator);
 
-// macro to iterate over the list (mainly used for debugging and freeing custom elements)
-#define LIST_FOREACH(elem, list) \
-    for (const list_iterator_t *it = list_iterator_first(list); \
-            it != NULL && (elem = list_iterator_get(it)); \
-            it = list_iterator_next(it))
-
 #endif // !LIST_H
