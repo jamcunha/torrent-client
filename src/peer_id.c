@@ -21,7 +21,7 @@ void generate_peer_id(void) {
         peer_id[i] = (char)((pid + (t >> i)) & 0xFF);
     }
 
-    LOG_INFO("Generated peer id: %s", peer_id);
+    LOG_DEBUG("[peer_id.c] Generated peer id: %s", peer_id);
 }
 
 const char *get_peer_id(void) {

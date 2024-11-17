@@ -53,6 +53,7 @@ static uint8_t **torrent_create_pieces_array(torrent_t *torrent, byte_str_t *pie
     }
 
     torrent->num_pieces = pieces_str->len / SHA1_DIGEST_SIZE;
+    torrent->pieces_left = torrent->num_pieces;
 
     uint8_t **pieces = malloc(torrent->num_pieces * sizeof(uint8_t *));
     if (pieces == NULL) {
@@ -296,6 +297,9 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
         LOG_ERROR("[torrent.c] Failed to allocate memory for torrent");
         return NULL;
     }
+
+    torrent->max_peers = TORRENT_DEFAULT_MAX_PEERS;
+    torrent->total_down = 0;
     
     LOG_DEBUG("[torrent.c] Getting announce key from torrent file");
 

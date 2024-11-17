@@ -1,7 +1,9 @@
 #include "log.h"
 #include "torrent.h"
 #include "torrent_file.h"
+#include "tracker.h"
 
+#include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -84,6 +86,31 @@ int main(int argc, char **argv) {
     }
     bencode_free(node);
 
+    tracker_res_t *res = tracker_announce(torrent);
+    if (res == NULL) {
+        LOG_ERROR("Failed to announce to tracker");
+        torrent_free(torrent);
+        return 1;
+    }
+
+    LOG_INFO("Tracker response:");
+    LOG_INFO("  Failure reason: %s", res->failure_reason);
+    LOG_INFO("  Warning message: %s", res->warning_message);
+    LOG_INFO("  Interval: %d", res->interval);
+    LOG_INFO("  Min interval: %d", res->min_interval);
+    LOG_INFO("  Tracker ID: %s", res->tracker_id);
+    LOG_INFO("  Complete: %d", res->complete);
+    LOG_INFO("  Incomplete: %d", res->incomplete);
+
+    LOG_INFO("  Peers:");
+    for (const list_iterator_t *it = list_iterator_first(res->peers); it != NULL; it = list_iterator_next(it)) {
+        peer_t *peer = list_iterator_get(it);
+        char ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &peer->addr.sin_addr, ip, INET_ADDRSTRLEN);
+        LOG_INFO("    %s:%d", ip, ntohs(peer->addr.sin_port));
+    }
+
+    tracker_res_free(res);
     torrent_free(torrent);
     return 0;
 }

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -Werror -pedantic -std=c99
+CFLAGS=-Wall -Wextra -Werror -pedantic -std=gnu11 -D_GNU_SOURCE
 
 BUILD_DIR=build
 BIN=tc

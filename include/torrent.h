@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#define TORRENT_DEFAULT_MAX_PEERS 50
+
 typedef struct {
     char *announce;
 
@@ -24,6 +26,12 @@ typedef struct {
     size_t num_pieces;
     uint64_t piece_length;
     // bool private;
+
+    uint32_t max_peers;
+    size_t pieces_left;
+
+    // Should this be here?
+    uint32_t total_down;
 } torrent_t;
 
 /**
