@@ -14,56 +14,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static tracker_req_t *tracker_request_create(torrent_t *torrent, uint16_t port) {
-    if (torrent == NULL) {
-        LOG_WARN("[tracker.c] Must provide a torrent");
-        return NULL;
-    }
-
-    tracker_req_t *req = malloc(sizeof(tracker_req_t));
-    if (req == NULL) {
-        LOG_ERROR("[tracker.c] Failed to allocate memory for tracker request");
-        return NULL;
-    }
-
-    memcpy(req->info_hash, torrent->info_hash, SHA1_DIGEST_SIZE);
-
-    generate_peer_id();
-    memcpy(req->peer_id, get_peer_id(), PEER_ID_SIZE);
-
-    req->port = port;
-
-    // TODO: Initialize this properly
-    req->uploaded = 0;
-    req->downloaded = torrent->total_down;
-    req->left = torrent->pieces_left * BLOCK_SIZE;
-
-    req->compact = true;
-    req->no_peer_id = false;
-    req->event = TRACKER_EVENT_EMPTY;
-
-    // IP is not supported yet
-
-    // NOTE: For now just use the default (50)
-    req->numwant = torrent->max_peers;
-
-    req->key = NULL;
-    req->tracker_id = NULL;
-
-    return req;
-}
-
-static void tracker_request_free(tracker_req_t *req) {
-    if (req == NULL) {
-        LOG_WARN("[tracker.c] Trying to free NULL tracker request");
-        return;
-    }
-
-    free(req->key);
-    free(req->tracker_id);
-    free(req);
-}
-
 static int tracker_connect(url_t *url) {
     if (url == NULL) {
         LOG_WARN("[tracker.c] Must provide a URL");
@@ -247,7 +197,7 @@ static char *tracker_recv(int sockfd) {
         return NULL;
     }
 
-    char buffer[1024];
+    char buffer[4096];
     ssize_t total_recv = 0;
     ssize_t bytes_recv = 0;
 
@@ -259,6 +209,10 @@ static char *tracker_recv(int sockfd) {
         }
 
         total_recv += bytes_recv;
+
+        if (bytes_recv < 4096) {
+            break;
+        }
     } while (bytes_recv > 0);
 
     if (total_recv == 0) {
@@ -266,7 +220,7 @@ static char *tracker_recv(int sockfd) {
         return NULL;
     }
 
-    if (total_recv > 1024) {
+    if (total_recv > 4096) {
         LOG_ERROR("[tracker.c] Tracker response larger than buffer: %ld", total_recv);
         return NULL;
     }
@@ -402,127 +356,6 @@ static list_t* parse_peer_list_dict(list_t *peers_list) {
     return peers;
 }
 
-static tracker_res_t *parse_tracker_res(bencode_node_t *node) {
-    if (node == NULL) {
-        LOG_WARN("[tracker.c] Must provide a bencode node");
-    }
-
-    assert(node->type == BENCODE_DICT && "Expected a dictionary node");
-    dict_t *dict = node->value.d;
-
-    tracker_res_t *res = malloc(sizeof(tracker_res_t));
-    if (res == NULL) {
-        LOG_ERROR("[tracker.c] Failed to allocate memory for tracker response");
-        return NULL;
-    }
-
-    bencode_node_t *failure_reason_node = dict_get(dict, "failure reason");
-    if (failure_reason_node != NULL) {
-        res->failure_reason = strdup((char *)failure_reason_node->value.s->data);
-        if (res->failure_reason == NULL) {
-            LOG_ERROR("[tracker.c] Failed to allocate memory for failure reason");
-            free(res);
-            return NULL;
-        }
-    } else {
-        res->failure_reason = NULL;
-    }
-
-    bencode_node_t *warning_message_node = dict_get(dict, "warning message");
-    if (warning_message_node != NULL) {
-        res->warning_message = strdup((char *)warning_message_node->value.s->data);
-        if (res->warning_message == NULL) {
-            LOG_ERROR("[tracker.c] Failed to allocate memory for warning message");
-            free(res->failure_reason);
-            free(res);
-            return NULL;
-        }
-    } else {
-        res->warning_message = NULL;
-    }
-
-    bencode_node_t *interval_node = dict_get(dict, "interval");
-    if (interval_node != NULL) {
-        res->interval = interval_node->value.i;
-    } else {
-        LOG_ERROR("[tracker.c] Missing interval in tracker response");
-        free(res->failure_reason);
-        free(res->warning_message);
-        free(res);
-        return NULL;
-    }
-
-    bencode_node_t *min_interval_node = dict_get(dict, "min interval");
-    if (min_interval_node != NULL) {
-        res->min_interval = min_interval_node->value.i;
-    } else {
-        res->min_interval = 0;
-    }
-
-    bencode_node_t *tracker_id_node = dict_get(dict, "tracker id");
-    if (tracker_id_node != NULL) {
-        res->tracker_id = strdup((char *)tracker_id_node->value.s->data);
-        if (res->tracker_id == NULL) {
-            LOG_ERROR("[tracker.c] Failed to allocate memory for tracker ID");
-            free(res->failure_reason);
-            free(res->warning_message);
-            free(res);
-            return NULL;
-        }
-    } else {
-        res->tracker_id = NULL;
-    }
-
-    bencode_node_t *complete_node = dict_get(dict, "complete");
-    if (complete_node != NULL) {
-        res->complete = complete_node->value.i;
-    } else {
-        LOG_ERROR("[tracker.c] Missing complete in tracker response");
-        free(res->failure_reason);
-        free(res->warning_message);
-        free(res->tracker_id);
-        free(res);
-        return NULL;
-    }
-
-    bencode_node_t *incomplete_node = dict_get(dict, "incomplete");
-    if (incomplete_node != NULL) {
-        res->incomplete = incomplete_node->value.i;
-    } else {
-        LOG_ERROR("[tracker.c] Missing incomplete in tracker response");
-        free(res->failure_reason);
-        free(res->warning_message);
-        free(res->tracker_id);
-        free(res);
-        return NULL;
-    }
-
-    bencode_node_t *peers_node = dict_get(dict, "peers");
-    if (peers_node != NULL) {
-        if (peers_node->type == BENCODE_LIST) {
-            res->peers = parse_peer_list_dict(peers_node->value.l);
-        } else if (peers_node->type == BENCODE_STR) {
-            res->peers = parse_peer_list_compact(peers_node->value.s);
-        } else {
-            LOG_ERROR("[tracker.c] Invalid peers type in tracker response");
-            free(res->failure_reason);
-            free(res->warning_message);
-            free(res->tracker_id);
-            free(res);
-            return NULL;
-        }
-    } else {
-        LOG_ERROR("[tracker.c] Missing peers in tracker response");
-        free(res->failure_reason);
-        free(res->warning_message);
-        free(res->tracker_id);
-        free(res);
-        return NULL;
-    }
-
-    return res;
-}
-
 tracker_res_t *tracker_announce(torrent_t *torrent) {
     if (torrent == NULL) {
         LOG_WARN("[tracker.c] Must provide a torrent");
@@ -580,27 +413,204 @@ tracker_res_t *tracker_announce(torrent_t *torrent) {
 
     LOG_DEBUG("[tracker.c] Tracker response body: %s", body);
 
-    const char *endptr;
-    bencode_node_t *node = bencode_parse(body, &endptr);
-    if (node == NULL) {
-        close(sockfd);
-        return NULL;
-    }
-    free(body);
-
-    tracker_res_t *res = parse_tracker_res(node);
+    tracker_res_t *res = parse_tracker_response(body);
     if (res == NULL) {
-        bencode_free(node);
+        free(body);
         close(sockfd);
         return NULL;
     }
 
-    bencode_free(node);
+    free(body);
     close(sockfd);
     return res;
 }
 
-void tracker_res_free(tracker_res_t *res) {
+tracker_req_t *tracker_request_create(torrent_t *torrent, uint16_t port) {
+    if (torrent == NULL) {
+        LOG_WARN("[tracker.c] Must provide a torrent");
+        return NULL;
+    }
+
+    tracker_req_t *req = malloc(sizeof(tracker_req_t));
+    if (req == NULL) {
+        LOG_ERROR("[tracker.c] Failed to allocate memory for tracker request");
+        return NULL;
+    }
+
+    memcpy(req->info_hash, torrent->info_hash, SHA1_DIGEST_SIZE);
+
+    generate_peer_id();
+    memcpy(req->peer_id, get_peer_id(), PEER_ID_SIZE);
+
+    req->port = port;
+
+    // TODO: Initialize this properly
+    req->uploaded = 0;
+    req->downloaded = torrent->total_down;
+    req->left = torrent->pieces_left * BLOCK_SIZE;
+
+    req->compact = true;
+    req->no_peer_id = false;
+    req->event = TRACKER_EVENT_EMPTY;
+
+    // IP is not supported yet
+
+    // NOTE: For now just use the default (50)
+    req->numwant = torrent->max_peers;
+
+    req->key = NULL;
+    req->tracker_id = NULL;
+
+    return req;
+}
+
+void tracker_request_free(tracker_req_t *req) {
+    if (req == NULL) {
+        LOG_WARN("[tracker.c] Trying to free NULL tracker request");
+        return;
+    }
+
+    free(req->key);
+    free(req->tracker_id);
+    free(req);
+}
+
+tracker_res_t *parse_tracker_response(char *bencode_str) {
+    const char *endptr;
+    bencode_node_t *node = bencode_parse(bencode_str, &endptr);
+    if (node == NULL) {
+        LOG_ERROR("[tracker.c] Failed to parse tracker response");
+        return NULL;
+    }
+
+    assert(node->type == BENCODE_DICT && "Expected a dictionary node");
+    dict_t *dict = node->value.d;
+
+    tracker_res_t *res = malloc(sizeof(tracker_res_t));
+    if (res == NULL) {
+        LOG_ERROR("[tracker.c] Failed to allocate memory for tracker response");
+        bencode_free(node);
+        return NULL;
+    }
+
+    bencode_node_t *failure_reason_node = dict_get(dict, "failure reason");
+    if (failure_reason_node != NULL) {
+        res->failure_reason = strdup((char *)failure_reason_node->value.s->data);
+        if (res->failure_reason == NULL) {
+            LOG_ERROR("[tracker.c] Failed to allocate memory for failure reason");
+            bencode_free(node);
+            free(res);
+            return NULL;
+        }
+    } else {
+        res->failure_reason = NULL;
+    }
+
+    bencode_node_t *warning_message_node = dict_get(dict, "warning message");
+    if (warning_message_node != NULL) {
+        res->warning_message = strdup((char *)warning_message_node->value.s->data);
+        if (res->warning_message == NULL) {
+            LOG_ERROR("[tracker.c] Failed to allocate memory for warning message");
+            bencode_free(node);
+            free(res->failure_reason);
+            free(res);
+            return NULL;
+        }
+    } else {
+        res->warning_message = NULL;
+    }
+
+    bencode_node_t *interval_node = dict_get(dict, "interval");
+    if (interval_node != NULL) {
+        res->interval = interval_node->value.i;
+    } else {
+        LOG_ERROR("[tracker.c] Missing interval in tracker response");
+        bencode_free(node);
+        free(res->failure_reason);
+        free(res->warning_message);
+        free(res);
+        return NULL;
+    }
+
+    bencode_node_t *min_interval_node = dict_get(dict, "min interval");
+    if (min_interval_node != NULL) {
+        res->min_interval = min_interval_node->value.i;
+    } else {
+        res->min_interval = 0;
+    }
+
+    bencode_node_t *tracker_id_node = dict_get(dict, "tracker id");
+    if (tracker_id_node != NULL) {
+        res->tracker_id = strdup((char *)tracker_id_node->value.s->data);
+        if (res->tracker_id == NULL) {
+            LOG_ERROR("[tracker.c] Failed to allocate memory for tracker ID");
+            bencode_free(node);
+            free(res->failure_reason);
+            free(res->warning_message);
+            free(res);
+            return NULL;
+        }
+    } else {
+        res->tracker_id = NULL;
+    }
+
+    bencode_node_t *complete_node = dict_get(dict, "complete");
+    if (complete_node != NULL) {
+        res->complete = complete_node->value.i;
+    } else {
+        LOG_ERROR("[tracker.c] Missing complete in tracker response");
+        bencode_free(node);
+        free(res->failure_reason);
+        free(res->warning_message);
+        free(res->tracker_id);
+        free(res);
+        return NULL;
+    }
+
+    bencode_node_t *incomplete_node = dict_get(dict, "incomplete");
+    if (incomplete_node != NULL) {
+        res->incomplete = incomplete_node->value.i;
+    } else {
+        LOG_ERROR("[tracker.c] Missing incomplete in tracker response");
+        bencode_free(node);
+        free(res->failure_reason);
+        free(res->warning_message);
+        free(res->tracker_id);
+        free(res);
+        return NULL;
+    }
+
+    bencode_node_t *peers_node = dict_get(dict, "peers");
+    if (peers_node != NULL) {
+        if (peers_node->type == BENCODE_LIST) {
+            res->peers = parse_peer_list_dict(peers_node->value.l);
+        } else if (peers_node->type == BENCODE_STR) {
+            res->peers = parse_peer_list_compact(peers_node->value.s);
+        } else {
+            LOG_ERROR("[tracker.c] Invalid peers type in tracker response");
+            bencode_free(node);
+            free(res->failure_reason);
+            free(res->warning_message);
+            free(res->tracker_id);
+            free(res);
+            return NULL;
+        }
+    } else {
+        LOG_ERROR("[tracker.c] Missing peers in tracker response");
+        bencode_free(node);
+        free(res->failure_reason);
+        free(res->warning_message);
+        free(res->tracker_id);
+        free(res);
+        return NULL;
+    }
+
+    bencode_free(node);
+    return res;
+}
+
+
+void tracker_response_free(tracker_res_t *res) {
     if (res == NULL) {
         LOG_WARN("[tracker.c] Trying to free NULL tracker response");
         return;

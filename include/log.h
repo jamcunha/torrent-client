@@ -1,6 +1,7 @@
 #ifndef LOG_H
 #define LOG_H
 
+#include <stdbool.h>
 #include <stdio.h>
 
 typedef enum {
@@ -25,6 +26,14 @@ void set_log_level(log_level_t level);
  * @param file The log file
  */
 void set_log_file(FILE *file);
+
+/**
+ * @brief Check if a message will be logged
+ *
+ * @param level The log level
+ * @return true if the message will be logged, false otherwise
+ */
+bool will_log(log_level_t level);
 
 /**
  * @brief Log a message

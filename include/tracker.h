@@ -55,6 +55,12 @@ typedef struct {
 
 tracker_res_t *tracker_announce(torrent_t *torrent);
 
-void tracker_res_free(tracker_res_t *res);
+tracker_req_t *tracker_request_create(torrent_t *torrent, uint16_t port);
+
+void tracker_request_free(tracker_req_t *req);
+
+tracker_res_t *parse_tracker_response(char *bencode_str);
+
+void tracker_response_free(tracker_res_t *res);
 
 #endif // !TRACKER_H

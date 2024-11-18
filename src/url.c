@@ -42,8 +42,8 @@ url_t *url_parse(const char *url) {
         free(parsed);
         return NULL;
     }
-
     memcpy(parsed->host, url, hostnanme_end - url);
+    parsed->host[hostnanme_end - url] = '\0';
 
     url = hostnanme_end;
 
@@ -74,6 +74,7 @@ url_t *url_parse(const char *url) {
         return NULL;
     }
     memcpy(parsed->path, url, path_end - url);
+    parsed->path[path_end - url] = '\0';
 
     return parsed;
 }

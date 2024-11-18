@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
-char *shift_args(int *argc, char ***argv) {
-    char *arg = NULL;
+const char *shift_args(int *argc, char ***argv) {
+    const char *arg = NULL;
     if (*argc > 0) {
         arg = (*argv)[0];
         (*argc)--;
@@ -32,13 +32,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    char *program_name = shift_args(&argc, &argv); // skip program name
+    const char *program_name = shift_args(&argc, &argv); // skip program name
 
-    char *torrent_file = NULL;
-    char *output_path = NULL;
+    const char *torrent_file = NULL;
+    const char *output_path = NULL;
 
     while (argc > 0) {
-        char *arg = shift_args(&argc, &argv);
+        const char *arg = shift_args(&argc, &argv);
         if (arg == NULL) {
             break;
         }
@@ -103,14 +103,16 @@ int main(int argc, char **argv) {
     LOG_INFO("  Incomplete: %d", res->incomplete);
 
     LOG_INFO("  Peers:");
-    for (const list_iterator_t *it = list_iterator_first(res->peers); it != NULL; it = list_iterator_next(it)) {
-        peer_t *peer = list_iterator_get(it);
-        char ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &peer->addr.sin_addr, ip, INET_ADDRSTRLEN);
-        LOG_INFO("    %s:%d", ip, ntohs(peer->addr.sin_port));
+    if (will_log(LOG_LEVEL_INFO)) {
+        for (const list_iterator_t *it = list_iterator_first(res->peers); it != NULL; it = list_iterator_next(it)) {
+            peer_t *peer = list_iterator_get(it);
+            char ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &peer->addr.sin_addr, ip, INET_ADDRSTRLEN);
+            LOG_INFO("    %s:%d", ip, ntohs(peer->addr.sin_port));
+        }
     }
 
-    tracker_res_free(res);
+    tracker_response_free(res);
     torrent_free(torrent);
     return 0;
 }

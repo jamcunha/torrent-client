@@ -31,7 +31,6 @@ file_t *file_create(const char *path, size_t size) {
     LOG_DEBUG("[file.c] Creating file `%s` with size %zu", path, size);
 
     strcpy(file->path, path);
-    file->path[strlen(path)] = '\0';
     file->size = size;
 
     file->data = calloc(FILE_CHUNK_SIZE, sizeof(uint8_t));

@@ -61,6 +61,10 @@ void set_log_file(FILE *file) {
     log.file = file;
 }
 
+bool will_log(log_level_t level) {
+    return level >= log.level;
+}
+
 void log_message(log_level_t level, const char *format, ...) {
     if (level < log.level) {
         return;
