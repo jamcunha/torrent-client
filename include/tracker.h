@@ -11,9 +11,6 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
-#define KB 1024
-#define BLOCK_SIZE (16 * KB)
-
 typedef enum {
     TRACKER_EVENT_EMPTY,
     TRACKER_EVENT_COMPLETED,
@@ -48,19 +45,44 @@ typedef struct {
     list_t *peers;
 } tracker_res_t;
 
-typedef struct {
-    char id[PEER_ID_SIZE];
-    struct sockaddr_in addr;
-} peer_t;
+/**
+ * @brief Announce to a tracker
+ *
+ * @param req The tracker request
+ * @param announce_url The announce URL
+ * @return The tracker response
+ */
+tracker_res_t *tracker_announce(tracker_req_t *req, const char *announce_url);
 
-tracker_res_t *tracker_announce(torrent_t *torrent);
-
+/**
+ * @brief Create a tracker request
+ *
+ * @param torrent The torrent
+ * @param port The port
+ * @return The tracker request
+ */
 tracker_req_t *tracker_request_create(torrent_t *torrent, uint16_t port);
 
+/**
+ * @brief Free a tracker request
+ *
+ * @param req The tracker request
+ */
 void tracker_request_free(tracker_req_t *req);
 
+/**
+ * @brief Parse a tracker response
+ *
+ * @param bencode_str The bencoded string
+ * @return The tracker response
+ */
 tracker_res_t *parse_tracker_response(char *bencode_str);
 
+/**
+ * @brief Free a tracker response
+ *
+ * @param res The tracker response
+ */
 void tracker_response_free(tracker_res_t *res);
 
 #endif // !TRACKER_H

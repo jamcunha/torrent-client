@@ -3,6 +3,7 @@
 #include "dict.h"
 #include "list.h"
 #include "log.h"
+#include "peer.h"
 #include "url.h"
 
 #include <arpa/inet.h>
@@ -359,13 +360,13 @@ static list_t* parse_peer_list_dict(list_t *peers_list) {
     return peers;
 }
 
-tracker_res_t *tracker_announce(torrent_t *torrent) {
-    if (torrent == NULL) {
-        LOG_WARN("[tracker.c] Must provide a torrent");
+tracker_res_t *tracker_announce(tracker_req_t *req, const char *announce_url) {
+    if (req == NULL || announce_url == NULL) {
+        LOG_WARN("[tracker.c] Must provide a tracker request and a URL");
         return NULL;
     }
 
-    url_t *url = url_parse(torrent->announce);
+    url_t *url = url_parse(announce_url);
     if (url == NULL) {
         return NULL;
     }
@@ -382,22 +383,13 @@ tracker_res_t *tracker_announce(torrent_t *torrent) {
         return NULL;
     }
 
-    tracker_req_t *req = tracker_request_create(torrent, 6881);
-    if (req == NULL) {
-        url_free(url);
-        close(sockfd);
-        return NULL;
-    }
-
     char *http_req = build_http_request(url, req);
     if (http_req == NULL) {
         url_free(url);
-        tracker_request_free(req);
         close(sockfd);
         return NULL;
     }
     url_free(url);
-    tracker_request_free(req);
 
     LOG_DEBUG("[tracker.c] HTTP request: %s", http_req);
 

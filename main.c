@@ -1,4 +1,5 @@
 #include "log.h"
+#include "peer.h"
 #include "torrent.h"
 #include "torrent_file.h"
 #include "tracker.h"
@@ -86,12 +87,21 @@ int main(int argc, char **argv) {
     }
     bencode_free(node);
 
-    tracker_res_t *res = tracker_announce(torrent);
-    if (res == NULL) {
-        LOG_ERROR("Failed to announce to tracker");
+    tracker_req_t *req = tracker_request_create(torrent, 6881);
+    if (req == NULL) {
+        LOG_ERROR("Failed to create tracker request");
         torrent_free(torrent);
         return 1;
     }
+
+    tracker_res_t *res = tracker_announce(req, torrent->announce);
+    if (res == NULL) {
+        LOG_ERROR("Failed to announce to tracker");
+        tracker_request_free(req);
+        torrent_free(torrent);
+        return 1;
+    }
+    tracker_request_free(req);
 
     LOG_INFO("Tracker response:");
     LOG_INFO("  Failure reason: %s", res->failure_reason);
@@ -111,6 +121,17 @@ int main(int argc, char **argv) {
             LOG_INFO("    %s:%d", ip, ntohs(peer->addr.sin_port));
         }
     }
+
+    peer_t *peer = list_at(res->peers, 0);
+
+    if (peer_connection_create(torrent, peer) != 0) {
+        LOG_ERROR("Failed to connect to peer");
+        tracker_response_free(res);
+        torrent_free(torrent);
+        return 1;
+    }
+
+    LOG_INFO("Connected to peer %s:%d", inet_ntoa(peer->addr.sin_addr), ntohs(peer->addr.sin_port));
 
     tracker_response_free(res);
     torrent_free(torrent);
