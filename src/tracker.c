@@ -254,9 +254,11 @@ static list_t *parse_peer_list_compact(byte_str_t *peers_str) {
 
         uint32_t ip;
         memcpy(&ip, peers_str->data + i, sizeof(uint32_t));
+        ip = ntohl(ip);
 
         uint16_t port;
         memcpy(&port, peers_str->data + i + sizeof(uint32_t), sizeof(uint16_t));
+        port = ntohs(port);
 
         peer.addr.sin_family = AF_INET;
         peer.addr.sin_addr.s_addr = htonl(ip);
@@ -273,6 +275,7 @@ static list_t *parse_peer_list_compact(byte_str_t *peers_str) {
     return peers;
 }
 
+// WARN: Not tested
 static list_t* parse_peer_list_dict(list_t *peers_list) {
     if (peers_list == NULL) {
         LOG_WARN("[tracker.c] Must provide a dictionary");
