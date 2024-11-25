@@ -226,7 +226,10 @@ int download_piece(torrent_t *torrent, peer_t *peer, int sockfd, uint32_t index)
         return -1;
     }
 
-    // TODO: write piece to file
+    file_t *file = *(file_t **)list_at(torrent->files, 0);
+    if (write_data_to_file(file, index * torrent->piece_length, piece, piece_length) != 0) {
+        return -1;
+    }
 
     return 0;
 }

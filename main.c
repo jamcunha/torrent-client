@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
 
     LOG_INFO("Connected to peer %s:%d", inet_ntoa(peer->addr.sin_addr), ntohs(peer->addr.sin_port));
 
-    if (download_piece(torrent, peer, sockfd, 2) == -1) {
+    if (download_piece(torrent, peer, sockfd, 0) == -1) {
         LOG_ERROR("Failed to download piece");
         close(sockfd);
         tracker_response_free(res);
@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    LOG_INFO("Piece %d/%d downloaded successfully", 3, torrent->num_pieces);
+    LOG_INFO("Piece %d/%d downloaded successfully", 1, torrent->num_pieces);
 
     close(sockfd);
     tracker_response_free(res);
