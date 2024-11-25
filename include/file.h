@@ -23,6 +23,22 @@ file_t *file_create(const char *path, size_t size);
 void file_free(file_t *file);
 
 /**
+ * @brief Get the size of the file
+ *
+ * @param file The file
+ * @return size_t The size of the file
+ */
+size_t get_file_size(file_t *file);
+
+/**
+ * @brief Get the path to the file
+ *
+ * @param file The file
+ * @return const char* The path to the file
+ */
+const char *get_file_path(file_t *file);
+
+/**
  * @brief Creates a new directory
  *
  * @param path The path to the directory

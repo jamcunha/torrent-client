@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define FILE_CHUNK_SIZE 1024
+#define FILE_CHUNK_SIZE 4096
 
 struct file {
     size_t size;
@@ -88,6 +88,24 @@ void file_free(file_t *file) {
 
     free(file->data);
     free(file);
+}
+
+size_t get_file_size(file_t *file) {
+    if (file == NULL) {
+        LOG_WARN("[file.c] Must provide a file to get its size");
+        return 0;
+    }
+
+    return file->size;
+}
+
+const char *get_file_path(file_t *file) {
+    if (file == NULL) {
+        LOG_WARN("[file.c] Must provide a file to get its path");
+        return NULL;
+    }
+
+    return file->path;
 }
 
 bool dir_exists(const char *path) {

@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 const char *shift_args(int *argc, char ***argv) {
     const char *arg = NULL;
@@ -124,7 +125,8 @@ int main(int argc, char **argv) {
 
     peer_t *peer = list_at(res->peers, 0);
 
-    if (peer_connection_create(torrent, peer) != 0) {
+    int sockfd;
+    if ((sockfd = peer_connection_create(torrent, peer)) <= 0) {
         LOG_ERROR("Failed to connect to peer");
         tracker_response_free(res);
         torrent_free(torrent);
@@ -133,6 +135,17 @@ int main(int argc, char **argv) {
 
     LOG_INFO("Connected to peer %s:%d", inet_ntoa(peer->addr.sin_addr), ntohs(peer->addr.sin_port));
 
+    if (download_piece(torrent, peer, sockfd, 2) == -1) {
+        LOG_ERROR("Failed to download piece");
+        close(sockfd);
+        tracker_response_free(res);
+        torrent_free(torrent);
+        return 1;
+    }
+
+    LOG_INFO("Piece %d/%d downloaded successfully", 3, torrent->num_pieces);
+
+    close(sockfd);
     tracker_response_free(res);
     torrent_free(torrent);
     return 0;

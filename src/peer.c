@@ -1,5 +1,8 @@
 #include "peer.h"
+#include "file.h"
+#include "list.h"
 #include "log.h"
+#include "peer_msg.h"
 
 #include <string.h>
 #include <sys/socket.h>
@@ -84,7 +87,7 @@ static int peer_recv_handshake(int sockfd, const uint8_t info_hash[SHA1_DIGEST_S
     if (will_log(LOG_LEVEL_INFO)) {
         uint8_t recv_peer_id[PEER_ID_SIZE + 1] = {0};
         memcpy(recv_peer_id, handshake + 1 + PROTOCOL_LEN + 8 + SHA1_DIGEST_SIZE, PEER_ID_SIZE);
-        LOG_INFO("Received handshake from peer %s", recv_peer_id);
+        LOG_INFO("Received handshake from peer: %s", recv_peer_id);
     }
 
     return 0;
@@ -111,6 +114,119 @@ int peer_connection_create(torrent_t *torrent, peer_t *peer) {
         return -1;
     }
 
-    close(sockfd);
+    return sockfd;
+}
+
+int download_piece(torrent_t *torrent, peer_t *peer, int sockfd, uint32_t index) {
+    if (torrent == NULL || peer == NULL || sockfd < 0) {
+        LOG_WARN("[peer.c] Must provide a torrent, peer, and socket");
+        return -1;
+    }
+
+    peer_msg_t *bitfield_msg = peer_recv_msg(sockfd);
+    if (bitfield_msg == NULL) {
+        return -1;
+    }
+
+    if (bitfield_msg->type != PEER_MSG_BITFIELD) {
+        LOG_ERROR("[peer.c] Expected bitfield message");
+        free(bitfield_msg->payload.bitfield);
+        free(bitfield_msg);
+        return -1;
+    }
+
+    // TODO: check needed pieces
+    //       for now assume peer has all pieces
+    free(bitfield_msg->payload.bitfield);
+    free(bitfield_msg);
+
+    peer_msg_t interested_msg = {
+        .type = PEER_MSG_INTERESTED
+    };
+
+    if (peer_send_msg(sockfd, &interested_msg) != 0) {
+        return -1;
+    }
+
+    peer_msg_t *unchoke_msg = peer_recv_msg(sockfd);
+    if (unchoke_msg == NULL) {
+        return -1;
+    }
+
+    if (unchoke_msg->type != PEER_MSG_UNCHOKE) {
+        LOG_ERROR("[peer.c] Expected unchoke message");
+        free(unchoke_msg);
+        return -1;
+    }
+    free(unchoke_msg);
+
+    uint64_t piece_length = torrent->piece_length;
+
+    LOG_WARN("[peer.c] ONLY SINGLE FILE TORRENTS SUPPORTED");
+    if (list_size(torrent->files) != 1) {
+        LOG_ERROR("[peer.c] Only single file torrents are supported");
+        return -1;
+    }
+
+    // If this is the last piece, the length may be less than the piece length
+    if (index == torrent->num_pieces - 1) {
+        // TODO: Find how to get the last piece length in a multi-file torrent
+        piece_length = get_file_size(*(file_t **)list_at(torrent->files, 0)) % torrent->piece_length;
+    }
+
+    uint8_t piece[piece_length];
+    for (size_t i = 0; i < piece_length; i += BLOCK_SIZE) {
+        uint32_t block_size = BLOCK_SIZE;
+        if (i + BLOCK_SIZE > piece_length) {
+            block_size = piece_length - i;
+        }
+
+        peer_msg_t request_msg = {
+            .type = PEER_MSG_REQUEST,
+            .payload.request = (peer_request_msg_t) {
+                .index = index,
+                .begin = i,
+                .length = block_size,
+            },
+        };
+
+        if (peer_send_msg(sockfd, &request_msg) != 0) {
+            return -1;
+        }
+
+        peer_msg_t *piece_msg = peer_recv_msg(sockfd);
+        if (piece_msg == NULL) {
+            return -1;
+        }
+
+        if (piece_msg->type != PEER_MSG_PIECE) {
+            LOG_ERROR("[peer.c] Expected piece message");
+            free(piece_msg->payload.piece.block);
+            free(piece_msg);
+            return -1;
+        }
+
+        if (piece_msg->payload.piece.index != index || piece_msg->payload.piece.begin != i) {
+            LOG_ERROR("[peer.c] Invalid piece message");
+            free(piece_msg->payload.piece.block);
+            free(piece_msg);
+            return -1;
+        }
+
+        memcpy(piece + i, piece_msg->payload.piece.block->data, block_size);
+        free(piece_msg->payload.piece.block);
+        free(piece_msg);
+    }
+
+    uint8_t recv_hash[SHA1_DIGEST_SIZE];
+    sha1(piece, piece_length, recv_hash);
+
+    if (memcmp(recv_hash, torrent->pieces[index], SHA1_DIGEST_SIZE) != 0) {
+        LOG_ERROR("[peer.c] Invalid piece hash");
+        return -1;
+    }
+
+    // TODO: write piece to file
+
     return 0;
 }

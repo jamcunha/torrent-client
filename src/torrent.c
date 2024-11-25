@@ -100,7 +100,6 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
             return -1;
         }
     } else {
-        // TODO: should we return if the directory already exists?
         LOG_ERROR("[torrent.c] Output directory already exists");
         return -1;
     }
