@@ -9,16 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void torrent_file_free(file_t **file_ptr) {
-    if (file_ptr == NULL) {
-        LOG_WARN("[torrent.c] Must provide a file pointer");
-        return;
-    }
-
-    file_free(*file_ptr);
-    free(file_ptr);
-}
-
 static void torrent_free_pieces(torrent_t *torrent) {
     if (torrent == NULL) {
         LOG_WARN("[torrent.c] Must provide a torrent");
@@ -172,7 +162,7 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
         }
 
         if (list_push(torrent->files, &file, sizeof(file_t *))) {
-            file_free(file);
+            free(file);
             return -1;
         }
     }
@@ -254,7 +244,7 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
 
         if (list_push(torrent->files, &file, sizeof(file_t *))) {
             torrent_free_pieces(torrent);
-            file_free(file);
+            free(file);
             return -1;
         }
 
@@ -387,7 +377,7 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
 
     memcpy(torrent->info_hash, info->digest, SHA1_DIGEST_SIZE);
 
-    torrent->files = list_create((void (*)(void *))torrent_file_free);
+    torrent->files = list_create(NULL);
     if (torrent->files == NULL) {
         LOG_ERROR("[torrent.c] Failed to create files list");
         free(torrent->created_by);

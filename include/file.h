@@ -2,6 +2,7 @@
 #define FILE_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 typedef struct file file_t;
@@ -16,19 +17,12 @@ typedef struct file file_t;
 file_t *file_create(const char *path, size_t size);
 
 /**
- * @brief Free the file
- *
- * @param file The file
- */
-void file_free(file_t *file);
-
-/**
  * @brief Get the size of the file
  *
  * @param file The file
  * @return size_t The size of the file
  */
-size_t get_file_size(file_t *file);
+size_t get_file_size(const file_t *file);
 
 /**
  * @brief Get the path to the file
@@ -36,7 +30,18 @@ size_t get_file_size(file_t *file);
  * @param file The file
  * @return const char* The path to the file
  */
-const char *get_file_path(file_t *file);
+const char *get_file_path(const file_t *file);
+
+/**
+ * @brief Write data to a file
+ *
+ * @param file The file
+ * @param offset The offset to write the data
+ * @param data The data to write
+ * @param len The length of the data
+ * @return int 0 if successful, -1 otherwise
+ */
+int write_data_to_file(file_t *file, size_t offset, uint8_t *data, size_t len);
 
 /**
  * @brief Creates a new directory
