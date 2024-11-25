@@ -56,4 +56,11 @@ int peer_send_msg(int sockfd, peer_msg_t *msg);
  */
 peer_msg_t *peer_recv_msg(int sockfd);
 
+/**
+ * @brief Free a message
+ *
+ * @param msg The message
+ */
+void peer_msg_free(peer_msg_t *msg);
+
 #endif // !PEER_MSG_H

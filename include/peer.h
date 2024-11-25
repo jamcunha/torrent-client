@@ -5,6 +5,7 @@
 #include "torrent.h"
 
 #include <netinet/in.h>
+#include <stdbool.h>
 
 #define KB 1024
 #define BLOCK_SIZE (16 * KB)
@@ -12,6 +13,7 @@
 typedef struct {
     char id[PEER_ID_SIZE];
     struct sockaddr_in addr;
+    bool choked;
 } peer_t;
 
 /**

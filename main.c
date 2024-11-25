@@ -135,15 +135,19 @@ int main(int argc, char **argv) {
 
     LOG_INFO("Connected to peer %s:%d", inet_ntoa(peer->addr.sin_addr), ntohs(peer->addr.sin_port));
 
-    if (download_piece(torrent, peer, sockfd, 2) == -1) {
-        LOG_ERROR("Failed to download piece");
-        close(sockfd);
-        tracker_response_free(res);
-        torrent_free(torrent);
-        return 1;
+    for (size_t i = 0; i < torrent->num_pieces; i++) {
+        if (download_piece(torrent, peer, sockfd, i) == -1) {
+            LOG_ERROR("Failed to download piece");
+            close(sockfd);
+            tracker_response_free(res);
+            torrent_free(torrent);
+            return 1;
+        }
+
+        LOG_INFO("Piece %d/%d downloaded successfully", i + 1, torrent->num_pieces);
     }
 
-    LOG_INFO("Piece %d/%d downloaded successfully", 3, torrent->num_pieces);
+    // NOTE: maybe we should download by block instead of by piece
 
     close(sockfd);
     tracker_response_free(res);

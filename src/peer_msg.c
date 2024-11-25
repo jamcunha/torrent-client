@@ -211,26 +211,26 @@ peer_msg_t *peer_recv_msg(int sockfd) {
         case PEER_MSG_NOT_INTERESTED:
             if (left != 0) {
                 LOG_ERROR("[peer_msg.c] Invalid message length");
-                free(msg);
+                peer_msg_free(msg);
                 return NULL;
             }
             break;
         case PEER_MSG_HAVE:
             // NOTE: For now, we don't receive HAVE messages
             LOG_WARN("[peer_msg.c] HAVE message not implemented");
-            free(msg);
+            peer_msg_free(msg);
             return NULL;
         case PEER_MSG_BITFIELD: {
             uint8_t buf[left];
             if (recv(sockfd, buf, left, 0) != left) {
                 LOG_ERROR("[peer_msg.c] Failed to receive message");
-                free(msg);
+                peer_msg_free(msg);
                 return NULL;
             }
 
             msg->payload.bitfield = byte_str_create(buf, left);
             if (msg->payload.bitfield == NULL) {
-                free(msg);
+                peer_msg_free(msg);
                 return NULL;
             }
             break;
@@ -238,24 +238,54 @@ peer_msg_t *peer_recv_msg(int sockfd) {
         case PEER_MSG_REQUEST:
             // NOTE: For now, we don't receive REQUEST messages
             LOG_WARN("[peer_msg.c] REQUEST message not implemented");
-            free(msg);
+            peer_msg_free(msg);
             return NULL;
         case PEER_MSG_PIECE:
             if (recv_piece_msg(sockfd, msg, left) != 0) {
-                free(msg);
+                peer_msg_free(msg);
                 return NULL;
             }
             break;
         case PEER_MSG_CANCEL:
             // NOTE: For now, we don't receive CANCEL messages
             LOG_WARN("[peer_msg.c] CANCEL message not implemented");
-            free(msg);
+            peer_msg_free(msg);
             return NULL;
         default:
             LOG_ERROR("[peer_msg.c] Invalid message type");
-            free(msg);
+            peer_msg_free(msg);
             return NULL;
     }
 
     return msg;
+}
+
+void peer_msg_free(peer_msg_t *msg) {
+    if (msg == NULL) {
+        LOG_WARN("[peer_msg.c] Trying to free NULL message");
+        return;
+    }
+
+    switch (msg->type) {
+        case PEER_MSG_CHOKE:
+        case PEER_MSG_UNCHOKE:
+        case PEER_MSG_INTERESTED:
+        case PEER_MSG_NOT_INTERESTED:
+        case PEER_MSG_HAVE:
+        case PEER_MSG_REQUEST:
+        case PEER_MSG_CANCEL:
+            // Nothing to free
+            break;
+        case PEER_MSG_BITFIELD:
+            free(msg->payload.bitfield);
+            break;
+        case PEER_MSG_PIECE:
+            free(msg->payload.piece.block);
+            break;
+        default:
+            LOG_ERROR("[peer_msg.c] Invalid message type");
+            break;
+    }
+
+    free(msg);
 }

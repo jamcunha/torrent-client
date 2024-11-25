@@ -265,6 +265,8 @@ static list_t *parse_peer_list_compact(byte_str_t *peers_str) {
         peer.addr.sin_addr.s_addr = htonl(ip);
         peer.addr.sin_port = htons(port);
 
+        peer.choked = true;
+
         if (list_push(peers, &peer, sizeof(peer))) {
             list_free(peers);
             return NULL;
@@ -350,6 +352,8 @@ static list_t* parse_peer_list_dict(list_t *peers_list) {
         }
 
         peer.addr.sin_port = htons((uint16_t)port_node->value.i & 0xFFFF);
+
+        peer.choked = true;
 
         if (list_push(peers, &peer, sizeof(peer))) {
             list_free(peers);

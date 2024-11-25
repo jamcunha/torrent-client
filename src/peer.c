@@ -4,6 +4,7 @@
 #include "log.h"
 #include "peer_msg.h"
 
+#include <assert.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -114,6 +115,22 @@ int peer_connection_create(torrent_t *torrent, peer_t *peer) {
         return -1;
     }
 
+    peer_msg_t *bitfield_msg = peer_recv_msg(sockfd);
+    if (bitfield_msg == NULL) {
+        return -1;
+    }
+
+    if (bitfield_msg->type != PEER_MSG_BITFIELD) {
+        LOG_ERROR("[peer.c] Expected bitfield message");
+        peer_msg_free(bitfield_msg);
+        return -1;
+    }
+
+    // TODO: check needed pieces
+    //       for now assume peer has all pieces
+    peer_msg_free(bitfield_msg);
+
+    // TODO: may need to return info from the bitfield message
     return sockfd;
 }
 
@@ -123,22 +140,11 @@ int download_piece(torrent_t *torrent, peer_t *peer, int sockfd, uint32_t index)
         return -1;
     }
 
-    peer_msg_t *bitfield_msg = peer_recv_msg(sockfd);
-    if (bitfield_msg == NULL) {
+    LOG_WARN("[peer.c] ONLY SINGLE FILE TORRENTS SUPPORTED");
+    if (list_size(torrent->files) != 1) {
+        LOG_ERROR("[peer.c] Only single file torrents are supported");
         return -1;
     }
-
-    if (bitfield_msg->type != PEER_MSG_BITFIELD) {
-        LOG_ERROR("[peer.c] Expected bitfield message");
-        free(bitfield_msg->payload.bitfield);
-        free(bitfield_msg);
-        return -1;
-    }
-
-    // TODO: check needed pieces
-    //       for now assume peer has all pieces
-    free(bitfield_msg->payload.bitfield);
-    free(bitfield_msg);
 
     peer_msg_t interested_msg = {
         .type = PEER_MSG_INTERESTED
@@ -148,25 +154,34 @@ int download_piece(torrent_t *torrent, peer_t *peer, int sockfd, uint32_t index)
         return -1;
     }
 
-    peer_msg_t *unchoke_msg = peer_recv_msg(sockfd);
-    if (unchoke_msg == NULL) {
-        return -1;
-    }
+    while(peer->choked) {
+        peer_msg_t *unchoke_msg = peer_recv_msg(sockfd);
+        if (unchoke_msg == NULL) {
+            return -1;
+        }
 
-    if (unchoke_msg->type != PEER_MSG_UNCHOKE) {
-        LOG_ERROR("[peer.c] Expected unchoke message");
-        free(unchoke_msg);
-        return -1;
+        switch (unchoke_msg->type) {
+            case PEER_MSG_UNCHOKE:
+                peer->choked = false;
+                break;
+            case PEER_MSG_CHOKE:
+                assert(0 && "Peer choked, TODO: handle this");
+                break;
+            case PEER_MSG_HAVE:
+                // TODO: update needed pieces
+                //      for now assume peer has all pieces
+                break;
+            case PEER_MSG_BITFIELD:
+                assert(0 && "Should not receive bitfield message after handshake");
+                break;
+            default:
+                // No need to handle other messages
+                break;
+        }
+        peer_msg_free(unchoke_msg);
     }
-    free(unchoke_msg);
 
     uint64_t piece_length = torrent->piece_length;
-
-    LOG_WARN("[peer.c] ONLY SINGLE FILE TORRENTS SUPPORTED");
-    if (list_size(torrent->files) != 1) {
-        LOG_ERROR("[peer.c] Only single file torrents are supported");
-        return -1;
-    }
 
     // If this is the last piece, the length may be less than the piece length
     if (index == torrent->num_pieces - 1) {
@@ -199,23 +214,37 @@ int download_piece(torrent_t *torrent, peer_t *peer, int sockfd, uint32_t index)
             return -1;
         }
 
-        if (piece_msg->type != PEER_MSG_PIECE) {
-            LOG_ERROR("[peer.c] Expected piece message");
-            free(piece_msg->payload.piece.block);
-            free(piece_msg);
-            return -1;
-        }
+        switch (piece_msg->type) {
+            case PEER_MSG_CHOKE:
+                peer->choked = true;
+                LOG_WARN("[peer.c] Peer choked while downloading piece");
+                peer_msg_free(piece_msg);
+                return -1;
+            case PEER_MSG_UNCHOKE:
+                assert(0 && "Should not receive unchoke message while unchoked");
+                peer_msg_free(piece_msg);
+                return -1;
+            case PEER_MSG_HAVE:
+                // TODO: update needed pieces
+                //     for now assume peer has all pieces
+                break;
+            case PEER_MSG_BITFIELD:
+                assert(0 && "Should not receive bitfield message after handshake");
+                peer_msg_free(piece_msg);
+                return -1;
+            case PEER_MSG_PIECE:
+                if (piece_msg->payload.piece.index != index || piece_msg->payload.piece.begin != i) {
+                    LOG_ERROR("[peer.c] Invalid piece message");
+                    peer_msg_free(piece_msg);
+                    return -1;
+                }
 
-        if (piece_msg->payload.piece.index != index || piece_msg->payload.piece.begin != i) {
-            LOG_ERROR("[peer.c] Invalid piece message");
-            free(piece_msg->payload.piece.block);
-            free(piece_msg);
-            return -1;
+                memcpy(piece + i, piece_msg->payload.piece.block->data, block_size);
+            default:
+                // No need to handle other messages
+                break;
         }
-
-        memcpy(piece + i, piece_msg->payload.piece.block->data, block_size);
-        free(piece_msg->payload.piece.block);
-        free(piece_msg);
+        peer_msg_free(piece_msg);
     }
 
     uint8_t recv_hash[SHA1_DIGEST_SIZE];
