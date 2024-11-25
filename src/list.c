@@ -36,7 +36,7 @@ static list_node_t *list_node_create(void *data, size_t size) {
     return node;
 }
 
-list_t *list_create(void (*data_free)(void *)) {
+list_t *list_create(list_free_data_fn_t data_free) {
     list_t *list = malloc(sizeof(list_t));
     if (list == NULL) {
         LOG_ERROR("[list.c] Failed to allocate memory for list");

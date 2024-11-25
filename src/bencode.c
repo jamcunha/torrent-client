@@ -113,7 +113,7 @@ static bencode_node_t *bencode_parse_list(const char *data, const char **endptr)
         return NULL;
     }
 
-    node->value.l = list_create((void (*)(void *))bencode_free);
+    node->value.l = list_create((list_free_data_fn_t) bencode_free);
     if (node->value.l == NULL) {
         free(node);
         return NULL;
@@ -164,7 +164,7 @@ static bencode_node_t *bencode_parse_dict(const char *data, const char **endptr)
         return NULL;
     }
 
-    node->value.d = dict_create(1, (void (*)(void *))bencode_free);
+    node->value.d = dict_create(1, (dict_free_data_fn_t) bencode_free);
     if (node->value.d == NULL) {
         free(node);
         return NULL;

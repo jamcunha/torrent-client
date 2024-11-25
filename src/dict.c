@@ -106,7 +106,7 @@ static size_t dict_hash(const char *key) {
     return hash;
 }
 
-dict_t *dict_create(size_t capacity, void (*value_free)(void *)) {
+dict_t *dict_create(size_t capacity, dict_free_data_fn_t value_free) {
     dict_t *dict = malloc(sizeof(dict_t));
     if (dict == NULL) {
         LOG_ERROR("[dict.c] Failed to allocate memory for dictionary");

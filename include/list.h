@@ -5,13 +5,15 @@
 
 typedef struct list list_t;
 
+typedef void (*list_free_data_fn_t)(void *);
+
 /**
  * @brief Create a new list
  * 
  * @param data_free The function to free the data in the list
  * @return list_t* The list
  */
-list_t *list_create(void (*data_free)(void *));
+list_t *list_create(list_free_data_fn_t data_free);
 
 /**
  * @brief Free the list

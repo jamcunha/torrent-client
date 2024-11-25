@@ -5,6 +5,8 @@
 
 typedef struct dict dict_t;
 
+typedef void (*dict_free_data_fn_t)(void *);
+
 /**
  * @brief Create a new dictionary (HashMap)
  *
@@ -12,7 +14,7 @@ typedef struct dict dict_t;
  * @param data_free The function to free the values in the dictionary
  * @return dict_t* The dictionary
  */
-dict_t *dict_create(size_t capacity, void (*value_free)(void *));
+dict_t *dict_create(size_t capacity, dict_free_data_fn_t data_free);
 
 /**
  * @brief Free the dictionary
