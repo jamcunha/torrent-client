@@ -28,7 +28,7 @@ int peer_connection_create(torrent_t *torrent, peer_t *peer);
 /**
  * @brief Download a piece from a peer
  * @details For now, only single file torrents are supported
- * (getting the size of the last piece is not implemented for multi-file torrents)
+ * (still need to find how to send the correct data to the file)
  *
  * @param torrent The torrent
  * @param peer The peer

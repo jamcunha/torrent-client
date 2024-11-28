@@ -185,8 +185,7 @@ int download_piece(torrent_t *torrent, peer_t *peer, int sockfd, uint32_t index)
 
     // If this is the last piece, the length may be less than the piece length
     if (index == torrent->num_pieces - 1) {
-        // TODO: Find how to get the last piece length in a multi-file torrent
-        piece_length = get_file_size(*(file_t **)list_at(torrent->files, 0)) % torrent->piece_length;
+        piece_length = torrent->total_down % torrent->piece_length;
     }
 
     uint8_t piece[piece_length];
@@ -254,6 +253,8 @@ int download_piece(torrent_t *torrent, peer_t *peer, int sockfd, uint32_t index)
         LOG_ERROR("[peer.c] Invalid piece hash");
         return -1;
     }
+
+    // TODO: Find a way to add the piece to correct files in multi file torrents
 
     file_t *file = *(file_t **)list_at(torrent->files, 0);
     if (write_data_to_file(file, index * torrent->piece_length, piece, piece_length) != 0) {

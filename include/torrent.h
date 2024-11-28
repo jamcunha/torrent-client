@@ -31,7 +31,7 @@ typedef struct {
     size_t pieces_left;
 
     // Should this be here?
-    uint32_t total_down;
+    uint64_t total_down;
 } torrent_t;
 
 /**

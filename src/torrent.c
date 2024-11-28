@@ -108,6 +108,8 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
         return -1;
     }
 
+    uint64_t total_down = 0;
+
     list_t *files = files_node->value.l;
     for (const list_iterator_t *it = list_iterator_first(files); it != NULL; it = list_iterator_next(it)) {
         bencode_node_t *file_node = (bencode_node_t *)list_iterator_get(it);
@@ -179,8 +181,11 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
             free(file);
             return -1;
         }
+
+        total_down += file_length;
     }
 
+    torrent->total_down = total_down;
     return 0;
 }
 
@@ -262,6 +267,7 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
             return -1;
         }
 
+        torrent->total_down = file_length;
         return 0;
     }
 
@@ -302,7 +308,6 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
     }
 
     torrent->max_peers = TORRENT_DEFAULT_MAX_PEERS;
-    torrent->total_down = 0;
     
     LOG_DEBUG("[torrent.c] Getting announce key from torrent file");
 
