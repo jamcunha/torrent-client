@@ -98,7 +98,8 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    tracker_res_t* res = tracker_announce(req, torrent->announce);
+    tracker_res_t* res
+        = tracker_announce(req, torrent->announce, torrent->info_hash);
     if (res == NULL) {
         LOG_ERROR("Failed to announce to tracker");
         tracker_request_free(req);
@@ -116,10 +117,18 @@ int main(int argc, char** argv) {
     LOG_INFO("  Complete: %d", res->complete);
     LOG_INFO("  Incomplete: %d", res->incomplete);
 
+    // Unlink the peers list from the response
+    list_t* peers = res->peers;
+    res->peers    = NULL;
+
+    // need to store more data (interval for example)
+
+    tracker_response_free(res);
+
     LOG_INFO("  Peers:");
     if (will_log(LOG_LEVEL_INFO)) {
-        for (const list_iterator_t* it = list_iterator_first(res->peers);
-             it != NULL; it            = list_iterator_next(it)) {
+        for (const list_iterator_t* it = list_iterator_first(peers); it != NULL;
+             it                        = list_iterator_next(it)) {
             peer_t* peer = list_iterator_get(it);
             char    ip[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &peer->addr.sin_addr, ip, INET_ADDRSTRLEN);
@@ -127,24 +136,15 @@ int main(int argc, char** argv) {
         }
     }
 
-    peer_t* peer = list_at(res->peers, 0);
-
-    int sockfd;
-    if ((sockfd = peer_connection_create(torrent, peer)) <= 0) {
-        LOG_ERROR("Failed to connect to peer");
-        tracker_response_free(res);
-        torrent_free(torrent);
-        return 1;
-    }
+    peer_t* peer = list_at(peers, 0);
 
     LOG_INFO("Connected to peer %s:%d", inet_ntoa(peer->addr.sin_addr),
              ntohs(peer->addr.sin_port));
 
     for (size_t i = 0; i < torrent->num_pieces; i++) {
-        if (download_piece(torrent, peer, sockfd, i) == -1) {
+        if (download_piece(peer, torrent, i) == -1) {
             LOG_ERROR("Failed to download piece");
-            close(sockfd);
-            tracker_response_free(res);
+            list_free(peers);
             torrent_free(torrent);
             return 1;
         }
@@ -153,10 +153,21 @@ int main(int argc, char** argv) {
                  torrent->num_pieces);
     }
 
+    for (const list_iterator_t* it = list_iterator_first(peers); it != NULL;
+         it                        = list_iterator_next(it)) {
+        peer_t* peer = list_iterator_get(it);
+        for (size_t i = 0; i < torrent->num_pieces; i++) {
+            if (!peer_has_piece(peer, i)) {
+                LOG_ERROR("Peer %s:%d does not have piece %d",
+                          inet_ntoa(peer->addr.sin_addr),
+                          ntohs(peer->addr.sin_port), i);
+            }
+        }
+    }
+
     // NOTE: maybe we should download by block instead of by piece
 
-    close(sockfd);
-    tracker_response_free(res);
+    list_free(peers);
     torrent_free(torrent);
     return 0;
 }

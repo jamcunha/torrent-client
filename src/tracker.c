@@ -264,7 +264,9 @@ static char* tracker_recv(int sockfd) {
     return strdup(extract_body_from_res(buffer));
 }
 
-static list_t* parse_peer_list_compact(byte_str_t* peers_str) {
+static list_t*
+parse_peer_list_compact(byte_str_t*   peers_str,
+                        const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
     if (peers_str == NULL) {
         LOG_WARN("[tracker.c] Must provide a byte string");
         return NULL;
@@ -272,52 +274,52 @@ static list_t* parse_peer_list_compact(byte_str_t* peers_str) {
 
     assert(peers_str->len % 6 == 0 && "Invalid compact peer list");
 
-    list_t* peers = list_create(NULL);
+    list_t* peers = list_create((list_free_data_fn_t)peer_free);
     if (peers == NULL) {
         return NULL;
     }
 
     for (size_t i = 0; i < peers_str->len; i += 6) {
-        peer_t peer;
-        memset(&peer, 0, sizeof(peer));
-
         // In compact mode, the first 4 bytes are the IP address
         // and the last 2 bytes are the port
 
         uint32_t ip;
         memcpy(&ip, peers_str->data + i, sizeof(uint32_t));
-        ip = ntohl(ip);
 
         uint16_t port;
         memcpy(&port, peers_str->data + i + sizeof(uint32_t), sizeof(uint16_t));
-        port = ntohs(port);
 
-        peer.addr.sin_family      = AF_INET;
-        peer.addr.sin_addr.s_addr = htonl(ip);
-        peer.addr.sin_port        = htons(port);
+        peer_t* peer = peer_create(ip, port, info_hash, NULL);
+        if (peer == NULL) {
+            list_free(peers);
+            return NULL;
+        }
 
-        peer.choked = true;
-
-        if (list_push(peers, &peer, sizeof(peer))) {
+        if (list_push(peers, peer, sizeof(peer_t))) {
             list_free(peers);
             return NULL;
         }
 
         LOG_DEBUG("[tracker.c] Peer addr: %s:%hu",
-                  inet_ntoa(peer.addr.sin_addr), ntohs(peer.addr.sin_port));
+                  inet_ntoa(peer->addr.sin_addr), ntohs(peer->addr.sin_port));
+
+        // peer data is copied to the list, so we can free it
+        free(peer);
     }
 
     return peers;
 }
 
 // WARN: Not tested
-static list_t* parse_peer_list_dict(list_t* peers_list) {
-    if (peers_list == NULL) {
-        LOG_WARN("[tracker.c] Must provide a dictionary");
+static list_t* parse_peer_list_dict(list_t*       peers_list,
+                                    const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
+    if (peers_list == NULL || info_hash == NULL) {
+        LOG_WARN(
+            "[tracker.c] Must provide a list of dictionaries and an info hash");
         return NULL;
     }
 
-    list_t* peers = list_create(NULL);
+    list_t* peers = list_create((list_free_data_fn_t)peer_free);
     if (peers == NULL) {
         return NULL;
     }
@@ -331,9 +333,6 @@ static list_t* parse_peer_list_dict(list_t* peers_list) {
             return NULL;
         }
         dict_t* peer_dict = peer_node->value.d;
-
-        peer_t peer;
-        memset(&peer, 0, sizeof(peer));
 
         bencode_node_t* peer_id_node = dict_get(peer_dict, "peer id");
         if (peer_id_node == NULL) {
@@ -353,7 +352,9 @@ static list_t* parse_peer_list_dict(list_t* peers_list) {
             list_free(peers);
             return NULL;
         }
-        memcpy(peer.id, peer_id_node->value.s->data, PEER_ID_SIZE);
+
+        uint8_t peer_id[PEER_ID_SIZE];
+        memcpy(peer_id, peer_id_node->value.s->data, PEER_ID_SIZE);
 
         bencode_node_t* ip_node = dict_get(peer_dict, "ip");
         if (ip_node == NULL) {
@@ -368,9 +369,7 @@ static list_t* parse_peer_list_dict(list_t* peers_list) {
             return NULL;
         }
 
-        peer.addr.sin_family = AF_INET;
-        peer.addr.sin_addr.s_addr
-            = htonl((uint32_t)ip_node->value.i & 0xFFFFFFFF);
+        uint32_t ip = htonl((uint32_t)ip_node->value.i & 0xFFFFFFFF);
 
         bencode_node_t* port_node = dict_get(peer_dict, "port");
         if (port_node == NULL) {
@@ -385,22 +384,27 @@ static list_t* parse_peer_list_dict(list_t* peers_list) {
             return NULL;
         }
 
-        peer.addr.sin_port = htons((uint16_t)port_node->value.i & 0xFFFF);
+        uint16_t port = htons((uint16_t)port_node->value.i & 0xFFFF);
 
-        peer.choked = true;
+        peer_t* peer = peer_create(ip, port, info_hash, peer_id);
 
-        if (list_push(peers, &peer, sizeof(peer))) {
+        if (list_push(peers, peer, sizeof(peer_t))) {
             list_free(peers);
             return NULL;
         }
+
+        // peer data is copied to the list, so we can free it
+        free(peer);
     }
 
     return peers;
 }
 
-tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
-    if (req == NULL || announce_url == NULL) {
-        LOG_WARN("[tracker.c] Must provide a tracker request and a URL");
+tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url,
+                                const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
+    if (req == NULL || announce_url == NULL || info_hash == NULL) {
+        LOG_WARN("[tracker.c] Must provide a tracker request, an announce URL, "
+                 "and an info hash");
         return NULL;
     }
 
@@ -446,7 +450,7 @@ tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
 
     LOG_DEBUG("[tracker.c] Tracker response body: %s", body);
 
-    tracker_res_t* res = parse_tracker_response(body);
+    tracker_res_t* res = parse_tracker_response(body, info_hash);
     if (res == NULL) {
         free(body);
         close(sockfd);
@@ -508,7 +512,9 @@ void tracker_request_free(tracker_req_t* req) {
     free(req);
 }
 
-tracker_res_t* parse_tracker_response(char* bencode_str) {
+tracker_res_t*
+parse_tracker_response(char*         bencode_str,
+                       const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
     const char*     endptr;
     bencode_node_t* node = bencode_parse(bencode_str, &endptr);
     if (node == NULL) {
@@ -619,9 +625,10 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
     bencode_node_t* peers_node = dict_get(dict, "peers");
     if (peers_node != NULL) {
         if (peers_node->type == BENCODE_LIST) {
-            res->peers = parse_peer_list_dict(peers_node->value.l);
+            res->peers = parse_peer_list_dict(peers_node->value.l, info_hash);
         } else if (peers_node->type == BENCODE_STR) {
-            res->peers = parse_peer_list_compact(peers_node->value.s);
+            res->peers
+                = parse_peer_list_compact(peers_node->value.s, info_hash);
         } else {
             LOG_ERROR("[tracker.c] Invalid peers type in tracker response");
             bencode_free(node);

@@ -36,3 +36,21 @@ int byte_str_cmp(const byte_str_t* a, const byte_str_t* b) {
 
     return memcmp(a->data, b->data, a->len);
 }
+
+get_byte_result_t byte_str_get_byte(const byte_str_t* str, size_t idx) {
+    if (str == NULL) {
+        LOG_WARN("[byte_str.c] Must provide a byte string");
+        return (get_byte_result_t){.success = false};
+    }
+
+    get_byte_result_t result = {.success = false};
+
+    if (idx >= str->len) {
+        LOG_WARN("[byte_str.c] Index out of bounds");
+        return result;
+    }
+
+    result.byte    = str->data[idx];
+    result.success = true;
+    return result;
+}

@@ -23,8 +23,12 @@ typedef struct {
     uint8_t   info_hash[SHA1_DIGEST_SIZE];
     list_t*   files;
     uint8_t** pieces;
-    size_t    num_pieces;
-    uint64_t  piece_length;
+
+    // NOTE: maybe add a byte_str to check each piece state
+    //       instead of only a counter
+    size_t num_pieces;
+
+    uint64_t piece_length;
     // bool private;
 
     uint32_t max_peers;

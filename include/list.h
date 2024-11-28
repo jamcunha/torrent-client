@@ -7,6 +7,10 @@ typedef struct list list_t;
 
 typedef void (*list_free_data_fn_t)(void*);
 
+// TODO: Add a list_t *list_copy(list_t *list) to free structs with lists inside
+//       while keeping the original list (maybe just set the list to NULL and
+//       get the list ptr)
+
 /**
  * @brief Create a new list
  *

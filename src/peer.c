@@ -1,11 +1,13 @@
 #include "peer.h"
 
+#include "byte_str.h"
 #include "file.h"
 #include "list.h"
 #include "log.h"
 #include "peer_msg.h"
 
 #include <assert.h>
+#include <limits.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -102,50 +104,92 @@ static int peer_recv_handshake(int           sockfd,
     return 0;
 }
 
-int peer_connection_create(torrent_t* torrent, peer_t* peer) {
-    if (torrent == NULL || peer == NULL) {
-        LOG_WARN("[peer.c] Must provide a torrent and peer");
-        return -1;
+peer_t* peer_create(uint32_t ip, uint16_t port,
+                    const uint8_t info_hash[SHA1_DIGEST_SIZE],
+                    const uint8_t peer_id[PEER_ID_SIZE]) {
+    if (info_hash == NULL) {
+        LOG_WARN("[peer.c] Must provide an info hash");
+        return NULL;
     }
 
-    int sockfd = peer_connect(peer);
-    if (sockfd < 0) {
-        return -1;
+    peer_t* peer = malloc(sizeof(peer_t));
+    if (peer == NULL) {
+        LOG_ERROR("[peer.c] Failed to allocate memory for peer");
+        return NULL;
     }
 
-    if (peer_send_handshake(sockfd, torrent->info_hash) != 0) {
-        close(sockfd);
-        return -1;
+    memset(peer, 0, sizeof(peer_t));
+
+    peer->addr.sin_family      = AF_INET;
+    peer->addr.sin_port        = port;
+    peer->addr.sin_addr.s_addr = ip;
+    peer->choked               = true;
+    peer->bitfield             = NULL;
+
+    if (peer_id != NULL) {
+        memcpy(peer->id, peer_id, PEER_ID_SIZE);
     }
 
-    if (peer_recv_handshake(sockfd, torrent->info_hash) != 0) {
-        close(sockfd);
-        return -1;
+    peer->sockfd = peer_connect(peer);
+    if (peer->sockfd < 0) {
+        peer_free(peer);
+        return NULL;
     }
 
-    peer_msg_t* bitfield_msg = peer_recv_msg(sockfd);
+    if (peer_send_handshake(peer->sockfd, info_hash) != 0) {
+        peer_free(peer);
+        return NULL;
+    }
+
+    if (peer_recv_handshake(peer->sockfd, info_hash) != 0) {
+        peer_free(peer);
+        return NULL;
+    }
+
+    peer_msg_t* bitfield_msg = peer_recv_msg(peer->sockfd);
     if (bitfield_msg == NULL) {
-        return -1;
+        peer_free(peer);
+        return NULL;
     }
 
     if (bitfield_msg->type != PEER_MSG_BITFIELD) {
         LOG_ERROR("[peer.c] Expected bitfield message");
-        peer_msg_free(bitfield_msg);
-        return -1;
+        peer_free(peer);
+        return NULL;
     }
 
-    // TODO: check needed pieces
-    //       for now assume peer has all pieces
-    peer_msg_free(bitfield_msg);
+    // copy bitfield
+    peer->bitfield = byte_str_create(bitfield_msg->payload.bitfield->data,
+                                     bitfield_msg->payload.bitfield->len);
 
-    // TODO: may need to return info from the bitfield message
-    return sockfd;
+    peer_msg_free(bitfield_msg);
+    return peer;
 }
 
-int download_piece(torrent_t* torrent, peer_t* peer, int sockfd,
-                   uint32_t index) {
-    if (torrent == NULL || peer == NULL || sockfd < 0) {
-        LOG_WARN("[peer.c] Must provide a torrent, peer, and socket");
+bool peer_has_piece(peer_t* peer, uint32_t index) {
+    if (peer == NULL) {
+        LOG_WARN("[peer.c] Must provide a peer");
+        return false;
+    }
+
+    uint32_t byte = index / CHAR_BIT;
+    uint8_t  bit  = index % CHAR_BIT;
+
+    get_byte_result_t byte_result = byte_str_get_byte(peer->bitfield, byte);
+    if (!byte_result.success) {
+        LOG_ERROR("[peer.c] Failed to get byte from bitfield");
+        return false;
+    }
+
+    return (byte_result.byte & (1 << (CHAR_BIT - bit - 1))) != 0;
+}
+
+// TODO: This function should be responsible for downloading a single block from
+// a single peer
+//       Complexity should be moved to torrent.c
+int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
+    if (torrent == NULL || peer == NULL) {
+        LOG_WARN("[peer.c] Must provide a torrent and a peer");
         return -1;
     }
 
@@ -157,12 +201,12 @@ int download_piece(torrent_t* torrent, peer_t* peer, int sockfd,
 
     peer_msg_t interested_msg = {.type = PEER_MSG_INTERESTED};
 
-    if (peer_send_msg(sockfd, &interested_msg) != 0) {
+    if (peer_send_msg(peer->sockfd, &interested_msg) != 0) {
         return -1;
     }
 
     while (peer->choked) {
-        peer_msg_t* unchoke_msg = peer_recv_msg(sockfd);
+        peer_msg_t* unchoke_msg = peer_recv_msg(peer->sockfd);
         if (unchoke_msg == NULL) {
             return -1;
         }
@@ -204,18 +248,19 @@ int download_piece(torrent_t* torrent, peer_t* peer, int sockfd,
 
         peer_msg_t request_msg = {
             .type = PEER_MSG_REQUEST,
-            .payload.request = (peer_request_msg_t) {
-                .index = index,
-                .begin = i,
-                .length = block_size,
-            },
+            .payload.request =
+                (peer_request_msg_t){
+                    .index = index,
+                    .begin = i,
+                    .length = block_size,
+                },
         };
 
-        if (peer_send_msg(sockfd, &request_msg) != 0) {
+        if (peer_send_msg(peer->sockfd, &request_msg) != 0) {
             return -1;
         }
 
-        peer_msg_t* piece_msg = peer_recv_msg(sockfd);
+        peer_msg_t* piece_msg = peer_recv_msg(peer->sockfd);
         if (piece_msg == NULL) {
             return -1;
         }
@@ -272,4 +317,15 @@ int download_piece(torrent_t* torrent, peer_t* peer, int sockfd,
     }
 
     return 0;
+}
+
+void peer_free(peer_t* peer) {
+    if (peer == NULL) {
+        LOG_WARN("[peer.c] Trying to free NULL peer");
+        return;
+    }
+
+    close(peer->sockfd);
+    free(peer->bitfield);
+    free(peer);
 }
