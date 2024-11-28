@@ -24,17 +24,24 @@ typedef struct {
 } peer_t;
 
 /**
- * @brief Create a new peer object and connect to it
+ * @brief Create a new peer object
  *
  * @param ip The IP address, in network byte order
  * @param port The port, in network byte order
- * @param info_hash The info hash of the torrent
  * @param peer_id The peer ID, optional
  * @return peer_t* The peer
  */
 peer_t* peer_create(uint32_t ip, uint16_t port,
-                    const uint8_t info_hash[SHA1_DIGEST_SIZE],
                     const uint8_t peer_id[PEER_ID_SIZE]);
+
+/**
+ * @brief Connect to a peer
+ *
+ * @param peer The peer
+ * @param info_hash The info hash of the torrent
+ * @return true if the peer is connected, false otherwise
+ */
+int peer_connect(peer_t* peer, const uint8_t info_hash[SHA1_DIGEST_SIZE]);
 
 /**
  * @brief Check if a peer has a piece

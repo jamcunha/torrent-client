@@ -17,7 +17,7 @@
 
 #define HANDSHAKE_LEN (1 + PROTOCOL_LEN + 8 + SHA1_DIGEST_SIZE + PEER_ID_SIZE)
 
-static int peer_connect(peer_t* peer) {
+static int peer_connect_socket(peer_t* peer) {
     if (peer == NULL) {
         LOG_WARN("[peer.c] Must provide a peer");
         return -1;
@@ -105,13 +105,7 @@ static int peer_recv_handshake(int           sockfd,
 }
 
 peer_t* peer_create(uint32_t ip, uint16_t port,
-                    const uint8_t info_hash[SHA1_DIGEST_SIZE],
                     const uint8_t peer_id[PEER_ID_SIZE]) {
-    if (info_hash == NULL) {
-        LOG_WARN("[peer.c] Must provide an info hash");
-        return NULL;
-    }
-
     peer_t* peer = malloc(sizeof(peer_t));
     if (peer == NULL) {
         LOG_ERROR("[peer.c] Failed to allocate memory for peer");
@@ -120,6 +114,7 @@ peer_t* peer_create(uint32_t ip, uint16_t port,
 
     memset(peer, 0, sizeof(peer_t));
 
+    peer->sockfd               = -1;
     peer->addr.sin_family      = AF_INET;
     peer->addr.sin_port        = port;
     peer->addr.sin_addr.s_addr = ip;
@@ -130,32 +125,42 @@ peer_t* peer_create(uint32_t ip, uint16_t port,
         memcpy(peer->id, peer_id, PEER_ID_SIZE);
     }
 
-    peer->sockfd = peer_connect(peer);
+    return peer;
+}
+
+int peer_connect(peer_t* peer, const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
+    if (peer == NULL || info_hash == NULL) {
+        LOG_WARN("[peer.c] Must provide a peer and an info hash");
+        return -1;
+    }
+
+    if (peer->sockfd != -1) {
+        LOG_WARN("[peer.c] Peer is already connected");
+        return -1;
+    }
+
+    peer->sockfd = peer_connect_socket(peer);
     if (peer->sockfd < 0) {
-        peer_free(peer);
-        return NULL;
+        return -1;
     }
 
     if (peer_send_handshake(peer->sockfd, info_hash) != 0) {
-        peer_free(peer);
-        return NULL;
+        return -1;
     }
 
     if (peer_recv_handshake(peer->sockfd, info_hash) != 0) {
-        peer_free(peer);
-        return NULL;
+        return -1;
     }
 
     peer_msg_t* bitfield_msg = peer_recv_msg(peer->sockfd);
     if (bitfield_msg == NULL) {
-        peer_free(peer);
-        return NULL;
+        return -1;
     }
 
     if (bitfield_msg->type != PEER_MSG_BITFIELD) {
         LOG_ERROR("[peer.c] Expected bitfield message");
-        peer_free(peer);
-        return NULL;
+        peer_msg_free(bitfield_msg);
+        return -1;
     }
 
     // copy bitfield
@@ -163,12 +168,17 @@ peer_t* peer_create(uint32_t ip, uint16_t port,
                                      bitfield_msg->payload.bitfield->len);
 
     peer_msg_free(bitfield_msg);
-    return peer;
+    return 0;
 }
 
 bool peer_has_piece(peer_t* peer, uint32_t index) {
     if (peer == NULL) {
         LOG_WARN("[peer.c] Must provide a peer");
+        return false;
+    }
+
+    if (peer->bitfield == NULL) {
+        LOG_WARN("[peer.c] Peer has no bitfield");
         return false;
     }
 
@@ -190,6 +200,11 @@ bool peer_has_piece(peer_t* peer, uint32_t index) {
 int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
     if (torrent == NULL || peer == NULL) {
         LOG_WARN("[peer.c] Must provide a torrent and a peer");
+        return -1;
+    }
+
+    if (peer->sockfd == -1) {
+        LOG_WARN("[peer.c] Peer is not connected");
         return -1;
     }
 

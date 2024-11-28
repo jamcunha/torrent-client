@@ -98,8 +98,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    tracker_res_t* res
-        = tracker_announce(req, torrent->announce, torrent->info_hash);
+    tracker_res_t* res = tracker_announce(req, torrent->announce);
     if (res == NULL) {
         LOG_ERROR("Failed to announce to tracker");
         tracker_request_free(req);
@@ -138,8 +137,22 @@ int main(int argc, char** argv) {
 
     peer_t* peer = list_at(peers, 0);
 
+    // NOTE: have a pool of peers instead of a single one
+
+    if (peer_connect(peer, torrent->info_hash) == -1) {
+        LOG_ERROR("Failed to connect to peer");
+        list_free(peers);
+        torrent_free(torrent);
+        return 1;
+    }
+
     LOG_INFO("Connected to peer %s:%d", inet_ntoa(peer->addr.sin_addr),
              ntohs(peer->addr.sin_port));
+
+    // NOTE: Instead of downloading pieces in ascending order, we should
+    //       download the rarest pieces first
+    //       (priority queue, piece object with a count of how many peers
+    //       have it)?
 
     for (size_t i = 0; i < torrent->num_pieces; i++) {
         if (download_piece(peer, torrent, i) == -1) {
@@ -157,7 +170,7 @@ int main(int argc, char** argv) {
          it                        = list_iterator_next(it)) {
         peer_t* peer = list_iterator_get(it);
         for (size_t i = 0; i < torrent->num_pieces; i++) {
-            if (!peer_has_piece(peer, i)) {
+            if (peer->sockfd != -1 && !peer_has_piece(peer, i)) {
                 LOG_ERROR("Peer %s:%d does not have piece %d",
                           inet_ntoa(peer->addr.sin_addr),
                           ntohs(peer->addr.sin_port), i);

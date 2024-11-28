@@ -50,11 +50,9 @@ typedef struct {
  *
  * @param req The tracker request
  * @param announce_url The announce URL
- * @param info_hash The info hash of the torrent
  * @return The tracker response
  */
-tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url,
-                                const uint8_t info_hash[SHA1_DIGEST_SIZE]);
+tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url);
 
 /**
  * @brief Create a tracker request
@@ -76,12 +74,9 @@ void tracker_request_free(tracker_req_t* req);
  * @brief Parse a tracker response
  *
  * @param bencode_str The bencoded string
- * @param info_hash The info hash of the torrent
  * @return The tracker response
  */
-tracker_res_t*
-parse_tracker_response(char*         bencode_str,
-                       const uint8_t info_hash[SHA1_DIGEST_SIZE]);
+tracker_res_t* parse_tracker_response(char* bencode_str);
 
 /**
  * @brief Free a tracker response
