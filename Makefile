@@ -16,7 +16,7 @@ SRC_DIR=src
 SRC=$(wildcard $(SRC_DIR)/*.c)
 OBJ=$(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC))
 
-TORRENT_FILE=torrent/example.torrent
+VALGRIND_TORRENT_FILE=torrent/example.torrent
 
 $(BUILD_DIR)/$(BIN): main.c $(OBJ) $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$(BIN) $(OBJ) $<
@@ -32,7 +32,7 @@ $(BUILD_DIR):
 
 .PHONY: valgrind
 valgrind: $(BUILD_DIR)/$(BIN)
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $< -t $(TORRENT_FILE)
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $< -t $(VALGRIND_TORRENT_FILE)
 
 .PHONY: clean
 clean:

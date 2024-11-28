@@ -23,6 +23,8 @@ void helper(const char *program_name) {
     printf("Usage: %s -t <torrent file> [-o <output path>]\n", program_name);
     printf("Options:\n");
     printf("  -t <torrent file>  Torrent file to download\n");
+
+    // NOTE: Should the path be shown instead of $XDG_DOWNLOAD_DIR?
     printf("  -o <output path>   Output path [default: $XDG_DOWNLOAD_DIR]\n");
     printf("  -h                 Show this help\n");
 }
