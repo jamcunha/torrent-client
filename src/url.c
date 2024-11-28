@@ -1,16 +1,17 @@
 #include "url.h"
+
 #include "log.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-url_t *url_parse(const char *url) {
+url_t* url_parse(const char* url) {
     if (url == NULL) {
         LOG_WARN("Must provide a URL");
         return NULL;
     }
 
-    url_t *parsed = malloc(sizeof(url_t));
+    url_t* parsed = malloc(sizeof(url_t));
     if (parsed == NULL) {
         LOG_ERROR("Failed to allocate memory for URL");
         return NULL;
@@ -31,8 +32,9 @@ url_t *url_parse(const char *url) {
         return NULL;
     }
 
-    const char *hostnanme_end = url;
-    while (*hostnanme_end != '\0' && *hostnanme_end != '/' && *hostnanme_end != ':') {
+    const char* hostnanme_end = url;
+    while (*hostnanme_end != '\0' && *hostnanme_end != '/'
+           && *hostnanme_end != ':') {
         hostnanme_end++;
     }
 
@@ -49,7 +51,7 @@ url_t *url_parse(const char *url) {
 
     if (*url == ':') {
         url++;
-        parsed->port = (uint16_t)strtol(url, (char **)&url, 10);
+        parsed->port = (uint16_t)strtol(url, (char**)&url, 10);
     } else {
         if (parsed->protocol == URL_PROTOCOL_HTTP) {
             parsed->port = 80;
@@ -61,7 +63,7 @@ url_t *url_parse(const char *url) {
         }
     }
 
-    const char *path_end = url;
+    const char* path_end = url;
     while (*path_end != '\0') {
         path_end++;
     }
@@ -79,7 +81,7 @@ url_t *url_parse(const char *url) {
     return parsed;
 }
 
-void url_free(url_t *url) {
+void url_free(url_t* url) {
     if (url == NULL) {
         LOG_WARN("Trying to free NULL URL");
         return;

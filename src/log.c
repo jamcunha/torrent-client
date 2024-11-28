@@ -7,49 +7,46 @@
 
 struct log {
     log_level_t level;
-    FILE *file;
+    FILE*       file;
 };
 
-static struct log log = {
-    .level = LOG_LEVEL_INFO,
-    .file = NULL
-};
+static struct log log = {.level = LOG_LEVEL_INFO, .file = NULL};
 
-static char *log_level_to_string(log_level_t level) {
+static char* log_level_to_string(log_level_t level) {
     switch (level) {
-        case LOG_LEVEL_DEBUG:
-            return "DEBUG";
-        case LOG_LEVEL_INFO:
-            return "INFO";
-        case LOG_LEVEL_WARN:
-            return "WARN";
-        case LOG_LEVEL_ERROR:
-            return "ERROR";
-        default:
-            assert(0 && "Invalid log level");
+    case LOG_LEVEL_DEBUG:
+        return "DEBUG";
+    case LOG_LEVEL_INFO:
+        return "INFO";
+    case LOG_LEVEL_WARN:
+        return "WARN";
+    case LOG_LEVEL_ERROR:
+        return "ERROR";
+    default:
+        assert(0 && "Invalid log level");
     }
 }
 
-static char *log_level_colour(log_level_t level) {
+static char* log_level_colour(log_level_t level) {
     switch (level) {
-        case LOG_LEVEL_DEBUG:
-            // Blue
-            return "\033[0;34m";
-        case LOG_LEVEL_INFO:
-            // Green
-            return "\033[0;32m";
-        case LOG_LEVEL_WARN:
-            // Yellow
-            return "\033[0;33m";
-        case LOG_LEVEL_ERROR:
-            // Red
-            return "\033[0;31m";
-        default:
-            assert(0 && "Invalid log level");
+    case LOG_LEVEL_DEBUG:
+        // Blue
+        return "\033[0;34m";
+    case LOG_LEVEL_INFO:
+        // Green
+        return "\033[0;32m";
+    case LOG_LEVEL_WARN:
+        // Yellow
+        return "\033[0;33m";
+    case LOG_LEVEL_ERROR:
+        // Red
+        return "\033[0;31m";
+    default:
+        assert(0 && "Invalid log level");
     }
 }
 
-inline static char *log_level_colour_reset(void) {
+inline static char* log_level_colour_reset(void) {
     return "\033[0m";
 }
 
@@ -57,7 +54,7 @@ void set_log_level(log_level_t level) {
     log.level = level;
 }
 
-void set_log_file(FILE *file) {
+void set_log_file(FILE* file) {
     log.file = file;
 }
 
@@ -65,24 +62,25 @@ bool will_log(log_level_t level) {
     return level >= log.level;
 }
 
-void log_message(log_level_t level, const char *format, ...) {
+void log_message(log_level_t level, const char* format, ...) {
     if (level < log.level) {
         return;
     }
 
     // Get the current time
-    time_t t = time(NULL);
-    struct tm *tm = localtime(&t);
-    char time_buf[20];
+    time_t     t  = time(NULL);
+    struct tm* tm = localtime(&t);
+    char       time_buf[20];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm);
 
     // If the log file is not set, print to stderr
-    FILE *output = log.file ? log.file : stderr;
+    FILE* output = log.file ? log.file : stderr;
 
     // Print time and log level
     // TODO: Should we always print to the terminal?
     if (isatty(output->_fileno)) { // don't know why fileno() is not working
-        fprintf(output, "[%s] %s[%s]%s ", time_buf, log_level_colour(level), log_level_to_string(level), log_level_colour_reset());
+        fprintf(output, "[%s] %s[%s]%s ", time_buf, log_level_colour(level),
+                log_level_to_string(level), log_level_colour_reset());
     } else {
         fprintf(output, "[%s] [%s] ", time_buf, log_level_to_string(level));
     }

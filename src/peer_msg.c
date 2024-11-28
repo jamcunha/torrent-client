@@ -1,4 +1,5 @@
 #include "peer_msg.h"
+
 #include "byte_str.h"
 #include "log.h"
 #include "sys/types.h"
@@ -9,33 +10,34 @@
 #include <string.h>
 #include <sys/socket.h>
 
-static uint32_t peer_msg_size(peer_msg_t *msg) {
+static uint32_t peer_msg_size(peer_msg_t* msg) {
     if (msg == NULL) {
         LOG_WARN("[peer_msg.c] Must provide a message");
         return 0;
     }
 
-    switch(msg->type) {
-        case PEER_MSG_CHOKE:
-        case PEER_MSG_UNCHOKE:
-        case PEER_MSG_INTERESTED:
-        case PEER_MSG_NOT_INTERESTED:
-            return sizeof(peer_msg_type_t);
-        case PEER_MSG_HAVE:
-            return sizeof(peer_msg_type_t) + sizeof(uint32_t);
-        case PEER_MSG_BITFIELD:
-            return sizeof(peer_msg_type_t) + msg->payload.bitfield->len;
-        case PEER_MSG_REQUEST:
-            return sizeof(peer_msg_type_t) + sizeof(peer_request_msg_t);
-        case PEER_MSG_PIECE:
-            return sizeof(peer_msg_type_t) + 2 * sizeof(uint32_t) + msg->payload.piece.block->len;
-        default:
-            LOG_ERROR("[peer_msg.c] Invalid message type");
-            return -1;
+    switch (msg->type) {
+    case PEER_MSG_CHOKE:
+    case PEER_MSG_UNCHOKE:
+    case PEER_MSG_INTERESTED:
+    case PEER_MSG_NOT_INTERESTED:
+        return sizeof(peer_msg_type_t);
+    case PEER_MSG_HAVE:
+        return sizeof(peer_msg_type_t) + sizeof(uint32_t);
+    case PEER_MSG_BITFIELD:
+        return sizeof(peer_msg_type_t) + msg->payload.bitfield->len;
+    case PEER_MSG_REQUEST:
+        return sizeof(peer_msg_type_t) + sizeof(peer_request_msg_t);
+    case PEER_MSG_PIECE:
+        return sizeof(peer_msg_type_t) + 2 * sizeof(uint32_t)
+               + msg->payload.piece.block->len;
+    default:
+        LOG_ERROR("[peer_msg.c] Invalid message type");
+        return -1;
     }
 }
 
-static int send_have_msg(int sockfd, peer_msg_t *msg) {
+static int send_have_msg(int sockfd, peer_msg_t* msg) {
     if (msg == NULL) {
         LOG_WARN("[peer_msg.c] Must provide a message");
         return -1;
@@ -50,13 +52,14 @@ static int send_have_msg(int sockfd, peer_msg_t *msg) {
     return 0;
 }
 
-static int send_bitfield_msg(int sockfd, peer_msg_t *msg) {
+static int send_bitfield_msg(int sockfd, peer_msg_t* msg) {
     if (msg == NULL) {
         LOG_WARN("[peer_msg.c] Must provide a message");
         return -1;
     }
 
-    ssize_t sent = send(sockfd, msg->payload.bitfield->data, msg->payload.bitfield->len, 0);
+    ssize_t sent = send(sockfd, msg->payload.bitfield->data,
+                        msg->payload.bitfield->len, 0);
     if (sent < 0 || (size_t)sent != msg->payload.bitfield->len) {
         LOG_ERROR("[peer_msg.c] Failed to send message");
         return -1;
@@ -65,14 +68,14 @@ static int send_bitfield_msg(int sockfd, peer_msg_t *msg) {
     return 0;
 }
 
-static int send_request_msg(int sockfd, peer_msg_t *msg) {
+static int send_request_msg(int sockfd, peer_msg_t* msg) {
     if (msg == NULL) {
         LOG_WARN("[peer_msg.c] Must provide a message");
         return -1;
     }
 
-    uint32_t idx = htonl(msg->payload.request.index);
-    uint32_t begin = htonl(msg->payload.request.begin);
+    uint32_t idx    = htonl(msg->payload.request.index);
+    uint32_t begin  = htonl(msg->payload.request.begin);
     uint32_t length = htonl(msg->payload.request.length);
 
     if (send(sockfd, &idx, sizeof(idx), 0) != sizeof(idx)) {
@@ -93,7 +96,7 @@ static int send_request_msg(int sockfd, peer_msg_t *msg) {
     return 0;
 }
 
-static int recv_piece_msg(int sockfd, peer_msg_t *msg, size_t len) {
+static int recv_piece_msg(int sockfd, peer_msg_t* msg, size_t len) {
     if (msg == NULL) {
         LOG_WARN("[peer_msg.c] Must provide a message");
         return -1;
@@ -117,7 +120,8 @@ static int recv_piece_msg(int sockfd, peer_msg_t *msg, size_t len) {
 
     uint8_t buf[block_len];
     for (uint32_t total_recv = 0; total_recv < block_len;) {
-        ssize_t recv_len = recv(sockfd, buf + total_recv, block_len - total_recv, 0);
+        ssize_t recv_len
+            = recv(sockfd, buf + total_recv, block_len - total_recv, 0);
         if (recv_len <= 0) {
             LOG_ERROR("[peer_msg.c] Failed to receive piece message");
             return -1;
@@ -129,7 +133,7 @@ static int recv_piece_msg(int sockfd, peer_msg_t *msg, size_t len) {
     return 0;
 }
 
-int peer_send_msg(int sockfd, peer_msg_t *msg) {
+int peer_send_msg(int sockfd, peer_msg_t* msg) {
     if (sockfd < 0 || msg == NULL) {
         LOG_WARN("[peer_msg.c] Must provide a valid socket and message");
         return -1;
@@ -147,34 +151,35 @@ int peer_send_msg(int sockfd, peer_msg_t *msg) {
         return -1;
     }
 
-    switch(msg->type) {
-        case PEER_MSG_CHOKE:
-        case PEER_MSG_UNCHOKE:
-        case PEER_MSG_INTERESTED:
-        case PEER_MSG_NOT_INTERESTED:
-            assert(ntohl(len) == sizeof(peer_msg_type_t) && "Invalid message length");
-            return 0;
-        case PEER_MSG_HAVE:
-            return send_have_msg(sockfd, msg);
-        case PEER_MSG_BITFIELD:
-            assert(msg->payload.bitfield != NULL && "Invalid message payload");
-            return send_bitfield_msg(sockfd, msg);
-        case PEER_MSG_REQUEST:
-            return send_request_msg(sockfd, msg);
-        case PEER_MSG_PIECE:
-            // NOTE: For now, we don't send PIECE messages
-            LOG_WARN("[peer_msg.c] PIECE message not implemented");
-            return -1;
-        case PEER_MSG_CANCEL:
-            LOG_WARN("[peer_msg.c] CANCEL message not implemented");
-            return -1;
-        default:
-            LOG_ERROR("[peer_msg.c] Invalid message type");
-            return -1;
+    switch (msg->type) {
+    case PEER_MSG_CHOKE:
+    case PEER_MSG_UNCHOKE:
+    case PEER_MSG_INTERESTED:
+    case PEER_MSG_NOT_INTERESTED:
+        assert(ntohl(len) == sizeof(peer_msg_type_t)
+               && "Invalid message length");
+        return 0;
+    case PEER_MSG_HAVE:
+        return send_have_msg(sockfd, msg);
+    case PEER_MSG_BITFIELD:
+        assert(msg->payload.bitfield != NULL && "Invalid message payload");
+        return send_bitfield_msg(sockfd, msg);
+    case PEER_MSG_REQUEST:
+        return send_request_msg(sockfd, msg);
+    case PEER_MSG_PIECE:
+        // NOTE: For now, we don't send PIECE messages
+        LOG_WARN("[peer_msg.c] PIECE message not implemented");
+        return -1;
+    case PEER_MSG_CANCEL:
+        LOG_WARN("[peer_msg.c] CANCEL message not implemented");
+        return -1;
+    default:
+        LOG_ERROR("[peer_msg.c] Invalid message type");
+        return -1;
     }
 }
 
-peer_msg_t *peer_recv_msg(int sockfd) {
+peer_msg_t* peer_recv_msg(int sockfd) {
     if (sockfd < 0) {
         LOG_WARN("[peer_msg.c] Must provide a valid socket");
         return NULL;
@@ -195,7 +200,7 @@ peer_msg_t *peer_recv_msg(int sockfd) {
 
     // TODO: validate len
 
-    peer_msg_t *msg = malloc(sizeof(peer_msg_t));
+    peer_msg_t* msg = malloc(sizeof(peer_msg_t));
     if (msg == NULL) {
         LOG_ERROR("[peer_msg.c] Failed to allocate message");
         return NULL;
@@ -204,87 +209,87 @@ peer_msg_t *peer_recv_msg(int sockfd) {
     msg->type = type;
 
     uint32_t left = len - sizeof(type);
-    switch(type) {
-        case PEER_MSG_CHOKE:
-        case PEER_MSG_UNCHOKE:
-        case PEER_MSG_INTERESTED:
-        case PEER_MSG_NOT_INTERESTED:
-            if (left != 0) {
-                LOG_ERROR("[peer_msg.c] Invalid message length");
-                peer_msg_free(msg);
-                return NULL;
-            }
-            break;
-        case PEER_MSG_HAVE:
-            // NOTE: For now, we don't receive HAVE messages
-            LOG_WARN("[peer_msg.c] HAVE message not implemented");
+    switch (type) {
+    case PEER_MSG_CHOKE:
+    case PEER_MSG_UNCHOKE:
+    case PEER_MSG_INTERESTED:
+    case PEER_MSG_NOT_INTERESTED:
+        if (left != 0) {
+            LOG_ERROR("[peer_msg.c] Invalid message length");
             peer_msg_free(msg);
             return NULL;
-        case PEER_MSG_BITFIELD: {
-            uint8_t buf[left];
-            if (recv(sockfd, buf, left, 0) != left) {
-                LOG_ERROR("[peer_msg.c] Failed to receive message");
-                peer_msg_free(msg);
-                return NULL;
-            }
-
-            msg->payload.bitfield = byte_str_create(buf, left);
-            if (msg->payload.bitfield == NULL) {
-                peer_msg_free(msg);
-                return NULL;
-            }
-            break;
         }
-        case PEER_MSG_REQUEST:
-            // NOTE: For now, we don't receive REQUEST messages
-            LOG_WARN("[peer_msg.c] REQUEST message not implemented");
+        break;
+    case PEER_MSG_HAVE:
+        // NOTE: For now, we don't receive HAVE messages
+        LOG_WARN("[peer_msg.c] HAVE message not implemented");
+        peer_msg_free(msg);
+        return NULL;
+    case PEER_MSG_BITFIELD: {
+        uint8_t buf[left];
+        if (recv(sockfd, buf, left, 0) != left) {
+            LOG_ERROR("[peer_msg.c] Failed to receive message");
             peer_msg_free(msg);
             return NULL;
-        case PEER_MSG_PIECE:
-            if (recv_piece_msg(sockfd, msg, left) != 0) {
-                peer_msg_free(msg);
-                return NULL;
-            }
-            break;
-        case PEER_MSG_CANCEL:
-            // NOTE: For now, we don't receive CANCEL messages
-            LOG_WARN("[peer_msg.c] CANCEL message not implemented");
+        }
+
+        msg->payload.bitfield = byte_str_create(buf, left);
+        if (msg->payload.bitfield == NULL) {
             peer_msg_free(msg);
             return NULL;
-        default:
-            LOG_ERROR("[peer_msg.c] Invalid message type");
+        }
+        break;
+    }
+    case PEER_MSG_REQUEST:
+        // NOTE: For now, we don't receive REQUEST messages
+        LOG_WARN("[peer_msg.c] REQUEST message not implemented");
+        peer_msg_free(msg);
+        return NULL;
+    case PEER_MSG_PIECE:
+        if (recv_piece_msg(sockfd, msg, left) != 0) {
             peer_msg_free(msg);
             return NULL;
+        }
+        break;
+    case PEER_MSG_CANCEL:
+        // NOTE: For now, we don't receive CANCEL messages
+        LOG_WARN("[peer_msg.c] CANCEL message not implemented");
+        peer_msg_free(msg);
+        return NULL;
+    default:
+        LOG_ERROR("[peer_msg.c] Invalid message type");
+        peer_msg_free(msg);
+        return NULL;
     }
 
     return msg;
 }
 
-void peer_msg_free(peer_msg_t *msg) {
+void peer_msg_free(peer_msg_t* msg) {
     if (msg == NULL) {
         LOG_WARN("[peer_msg.c] Trying to free NULL message");
         return;
     }
 
     switch (msg->type) {
-        case PEER_MSG_CHOKE:
-        case PEER_MSG_UNCHOKE:
-        case PEER_MSG_INTERESTED:
-        case PEER_MSG_NOT_INTERESTED:
-        case PEER_MSG_HAVE:
-        case PEER_MSG_REQUEST:
-        case PEER_MSG_CANCEL:
-            // Nothing to free
-            break;
-        case PEER_MSG_BITFIELD:
-            free(msg->payload.bitfield);
-            break;
-        case PEER_MSG_PIECE:
-            free(msg->payload.piece.block);
-            break;
-        default:
-            LOG_ERROR("[peer_msg.c] Invalid message type");
-            break;
+    case PEER_MSG_CHOKE:
+    case PEER_MSG_UNCHOKE:
+    case PEER_MSG_INTERESTED:
+    case PEER_MSG_NOT_INTERESTED:
+    case PEER_MSG_HAVE:
+    case PEER_MSG_REQUEST:
+    case PEER_MSG_CANCEL:
+        // Nothing to free
+        break;
+    case PEER_MSG_BITFIELD:
+        free(msg->payload.bitfield);
+        break;
+    case PEER_MSG_PIECE:
+        free(msg->payload.piece.block);
+        break;
+    default:
+        LOG_ERROR("[peer_msg.c] Invalid message type");
+        break;
     }
 
     free(msg);

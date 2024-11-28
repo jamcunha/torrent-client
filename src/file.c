@@ -1,4 +1,5 @@
 #include "file.h"
+
 #include "log.h"
 
 #include <assert.h>
@@ -10,16 +11,16 @@
 
 struct file {
     size_t size;
-    char path[];
+    char   path[];
 };
 
-file_t *file_create(const char *path, size_t size) {
+file_t* file_create(const char* path, size_t size) {
     if (path == NULL) {
         LOG_WARN("[file.c] Must provide a path to create a file");
         return NULL;
     }
 
-    file_t *file = malloc(sizeof(file_t) + strlen(path) + 1);
+    file_t* file = malloc(sizeof(file_t) + strlen(path) + 1);
     if (file == NULL) {
         LOG_ERROR("[file.c] Failed to allocate memory for file");
         return NULL;
@@ -33,7 +34,7 @@ file_t *file_create(const char *path, size_t size) {
     // Prealloc file with zeros
 
     uint8_t data[4096] = {0};
-    FILE *fp = fopen(path, "wb");
+    FILE*   fp         = fopen(path, "wb");
     if (fp == NULL) {
         LOG_ERROR("[file.c] Failed to open file `%s` in write mode", path);
         free(file);
@@ -57,7 +58,9 @@ file_t *file_create(const char *path, size_t size) {
     fseek(fp, 0, SEEK_END);
     size_t written = ftell(fp);
     if (written != size) {
-        LOG_ERROR("[file.c] Failed to write to file `%s`, wrote %zu bytes, expected %zu bytes", path, written, size);
+        LOG_ERROR("[file.c] Failed to write to file `%s`, wrote %zu bytes, "
+                  "expected %zu bytes",
+                  path, written, size);
         free(file);
         fclose(fp);
         return NULL;
@@ -67,7 +70,7 @@ file_t *file_create(const char *path, size_t size) {
     return file;
 }
 
-size_t get_file_size(const file_t *file) {
+size_t get_file_size(const file_t* file) {
     if (file == NULL) {
         LOG_WARN("[file.c] Must provide a file to get its size");
         return 0;
@@ -76,7 +79,7 @@ size_t get_file_size(const file_t *file) {
     return file->size;
 }
 
-const char *get_file_path(const file_t *file) {
+const char* get_file_path(const file_t* file) {
     if (file == NULL) {
         LOG_WARN("[file.c] Must provide a file to get its path");
         return NULL;
@@ -85,7 +88,7 @@ const char *get_file_path(const file_t *file) {
     return file->path;
 }
 
-int write_data_to_file(file_t *file, size_t offset, uint8_t *data, size_t len) {
+int write_data_to_file(file_t* file, size_t offset, uint8_t* data, size_t len) {
     if (file == NULL || data == NULL) {
         LOG_WARN("[file.c] Must provide a file and data to write to the file");
         return -1;
@@ -96,21 +99,24 @@ int write_data_to_file(file_t *file, size_t offset, uint8_t *data, size_t len) {
         return -1;
     }
 
-    FILE *fp = fopen(file->path, "r+b");
+    FILE* fp = fopen(file->path, "r+b");
     if (fp == NULL) {
-        LOG_ERROR("[file.c] Failed to open file `%s` in read/write mode", file->path);
+        LOG_ERROR("[file.c] Failed to open file `%s` in read/write mode",
+                  file->path);
         return -1;
     }
 
     if (fseek(fp, offset, SEEK_SET) != 0) {
-        LOG_ERROR("[file.c] Failed to seek to offset %zu in file `%s`", offset, file->path);
+        LOG_ERROR("[file.c] Failed to seek to offset %zu in file `%s`", offset,
+                  file->path);
         fclose(fp);
         return -1;
     }
 
     size_t total_written = 0;
-    while(total_written < len) {
-        size_t written = fwrite(data + total_written, sizeof(uint8_t), len - total_written, fp);
+    while (total_written < len) {
+        size_t written = fwrite(data + total_written, sizeof(uint8_t),
+                                len - total_written, fp);
         if (written == 0) {
             LOG_ERROR("[file.c] Failed to write data to file `%s`", file->path);
             fclose(fp);
@@ -125,12 +131,12 @@ int write_data_to_file(file_t *file, size_t offset, uint8_t *data, size_t len) {
     return 0;
 }
 
-bool dir_exists(const char *path) {
+bool dir_exists(const char* path) {
     struct stat sb;
     return stat(path, &sb) == 0 && S_ISDIR(sb.st_mode);
 }
 
-int create_dir(const char *path) {
+int create_dir(const char* path) {
     if (path == NULL) {
         LOG_WARN("[file.c] Must provide a path to create a directory");
         return -1;

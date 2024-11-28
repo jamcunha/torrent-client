@@ -11,9 +11,9 @@ typedef enum {
 
 typedef struct {
     protocol_t protocol;
-    char *host;
-    char *path;
-    uint16_t port;
+    char*      host;
+    char*      path;
+    uint16_t   port;
 } url_t;
 
 /**
@@ -22,13 +22,13 @@ typedef struct {
  * @param url The URL to parse
  * @return url_t* The parsed URL
  */
-url_t *url_parse(const char *url);
+url_t* url_parse(const char* url);
 
 /**
  * @brief Free the URL
  *
  * @param url The URL
  */
-void url_free(url_t *url);
+void url_free(url_t* url);
 
 #endif // !URL_H

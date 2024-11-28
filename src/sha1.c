@@ -1,4 +1,5 @@
 #include "sha1.h"
+
 #include "log.h"
 
 #include <assert.h>
@@ -22,10 +23,8 @@ static void sha1_transform(uint32_t state[5], const uint8_t block[64]) {
 
     // Break chunk into sixteen 32-bit words
     for (int i = 0; i < 16; i++) {
-        w[i] = (block[i * 4] << 24)
-            | (block[i * 4 + 1] << 16)
-            | (block[i * 4 + 2] << 8)
-            | (block[i * 4 + 3]);
+        w[i] = (block[i * 4] << 24) | (block[i * 4 + 1] << 16)
+               | (block[i * 4 + 2] << 8) | (block[i * 4 + 3]);
     }
 
     // Extend the sixteen 32-bit words into eighty 32-bit words
@@ -72,8 +71,8 @@ static void sha1_transform(uint32_t state[5], const uint8_t block[64]) {
     state[4] += e;
 }
 
-sha1_ctx_t *sha1_create(void) {
-    sha1_ctx_t *ctx = malloc(sizeof(sha1_ctx_t));
+sha1_ctx_t* sha1_create(void) {
+    sha1_ctx_t* ctx = malloc(sizeof(sha1_ctx_t));
     if (ctx == NULL) {
         LOG_ERROR("Failed to allocate memory for SHA-1 context");
         return NULL;
@@ -92,11 +91,11 @@ sha1_ctx_t *sha1_create(void) {
     return ctx;
 }
 
-void sha1_free(sha1_ctx_t *ctx) {
+void sha1_free(sha1_ctx_t* ctx) {
     free(ctx);
 }
 
-void sha1_update(sha1_ctx_t *ctx, const uint8_t *data, size_t size) {
+void sha1_update(sha1_ctx_t* ctx, const uint8_t* data, size_t size) {
     if (ctx == NULL || data == NULL) {
         LOG_WARN("Invalid SHA-1 context or data");
         return;
@@ -137,7 +136,7 @@ void sha1_update(sha1_ctx_t *ctx, const uint8_t *data, size_t size) {
     memcpy(&ctx->buffer[j], &data[i], size - i);
 }
 
-void sha1_final(sha1_ctx_t *ctx, uint8_t digest[SHA1_DIGEST_SIZE]) {
+void sha1_final(sha1_ctx_t* ctx, uint8_t digest[SHA1_DIGEST_SIZE]) {
     if (ctx == NULL || digest == NULL) {
         LOG_WARN("Invalid SHA-1 context or digest");
         return;
@@ -150,17 +149,19 @@ void sha1_final(sha1_ctx_t *ctx, uint8_t digest[SHA1_DIGEST_SIZE]) {
         // ((3 - (i & 3)) << 3) gets the correct byte in a 32-bit integer
         // i & 3 chooses the byte (3 -> 0b11) so the only values are 0, 1, 2, 3
         // 3 - (i & 3) reverses the order so the bytes are in the correct order
-        // 
+        //
         // & 0xFF masks the byte so it is only 8 bits
-        bits_processed[i] =
-            (uint8_t)((ctx->count[(i > 3 ? 0 : 1)] >> ((3 - (i & 3)) << 3)) & 0xFF); // Endian independent
+        bits_processed[i]
+            = (uint8_t)((ctx->count[(i > 3 ? 0 : 1)] >> ((3 - (i & 3)) << 3))
+                        & 0xFF); // Endian independent
     }
 
     uint8_t byte = 0x80;
     sha1_update(ctx, &byte, 1);
 
-    // pad the data with zeros until the length is congruent to 448 mod 512 (-64 mod 512)
-    // after padding, the message should be 512 bits - 64 bits (for the length)
+    // pad the data with zeros until the length is congruent to 448 mod 512 (-64
+    // mod 512) after padding, the message should be 512 bits - 64 bits (for the
+    // length)
     while ((ctx->count[0] & 511) != 448) {
         byte = 0x00;
         sha1_update(ctx, &byte, 1);
@@ -177,13 +178,13 @@ void sha1_final(sha1_ctx_t *ctx, uint8_t digest[SHA1_DIGEST_SIZE]) {
         // 3 - (i & 3) reverses the order so the bytes are in the correct order
         //
         // & 0xFF masks the byte so it is only 8 bits
-        digest[i] =
-            (uint8_t)((ctx->state[i >> 2] >> ((3 - (i & 3)) << 3)) & 0xFF);
+        digest[i]
+            = (uint8_t)((ctx->state[i >> 2] >> ((3 - (i & 3)) << 3)) & 0xFF);
     }
 }
 
-void sha1(const uint8_t *data, size_t size, uint8_t digest[SHA1_DIGEST_SIZE]) {
-    sha1_ctx_t *ctx = sha1_create();
+void sha1(const uint8_t* data, size_t size, uint8_t digest[SHA1_DIGEST_SIZE]) {
+    sha1_ctx_t* ctx = sha1_create();
     if (ctx == NULL) {
         return;
     }

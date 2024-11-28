@@ -1,17 +1,19 @@
 #include "torrent_file.h"
+
 #include "log.h"
 
 #include <stdio.h>
 
-bencode_node_t *torrent_file_parse(const char *filename) {
+bencode_node_t* torrent_file_parse(const char* filename) {
     if (filename == NULL) {
         LOG_WARN("Must provide a filename");
         return NULL;
     }
 
-    FILE *fp = fopen(filename, "rb");
+    FILE* fp = fopen(filename, "rb");
     if (fp == NULL) {
-        LOG_ERROR("[torrent_file.c] Failed to open file `%s` in read mode", filename);
+        LOG_ERROR("[torrent_file.c] Failed to open file `%s` in read mode",
+                  filename);
         return NULL;
     }
 
@@ -21,7 +23,7 @@ bencode_node_t *torrent_file_parse(const char *filename) {
 
     LOG_DEBUG("[torrent_file.c] Reading file `%s` of size %zu", filename, size);
 
-    char *data = malloc(size + 1);
+    char* data = malloc(size + 1);
     if (data == NULL) {
         LOG_ERROR("Failed to allocate memory for buffer of size %zu", size);
         fclose(fp);
@@ -36,10 +38,10 @@ bencode_node_t *torrent_file_parse(const char *filename) {
         return NULL;
     }
 
-    data[size] = '\0';
-    const char *endptr = data;
+    data[size]         = '\0';
+    const char* endptr = data;
 
-    bencode_node_t *node = bencode_parse(data, &endptr);
+    bencode_node_t* node = bencode_parse(data, &endptr);
     if (node == NULL) {
         free(data);
         fclose(fp);

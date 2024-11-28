@@ -1,4 +1,5 @@
 #include "torrent.h"
+
 #include "bencode.h"
 #include "dict.h"
 #include "file.h"
@@ -9,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void torrent_free_files(file_t **file_ptr) {
+static void torrent_free_files(file_t** file_ptr) {
     if (file_ptr == NULL) {
         LOG_WARN("[torrent.c] Must provide a file pointer");
         return;
@@ -23,7 +24,7 @@ static void torrent_free_files(file_t **file_ptr) {
     free(file_ptr);
 }
 
-static void torrent_free_pieces(torrent_t *torrent) {
+static void torrent_free_pieces(torrent_t* torrent) {
     if (torrent == NULL) {
         LOG_WARN("[torrent.c] Must provide a torrent");
         return;
@@ -36,11 +37,12 @@ static void torrent_free_pieces(torrent_t *torrent) {
         free(torrent->pieces);
     }
 
-    torrent->pieces = NULL;
+    torrent->pieces     = NULL;
     torrent->num_pieces = 0;
 }
 
-static uint8_t **torrent_create_pieces_array(torrent_t *torrent, byte_str_t *pieces_str) {
+static uint8_t** torrent_create_pieces_array(torrent_t*  torrent,
+                                             byte_str_t* pieces_str) {
     if (torrent == NULL) {
         LOG_WARN("[torrent.c] Must provide a torrent");
         return NULL;
@@ -52,14 +54,16 @@ static uint8_t **torrent_create_pieces_array(torrent_t *torrent, byte_str_t *pie
     }
 
     if (pieces_str->len % SHA1_DIGEST_SIZE != 0) {
-        LOG_WARN("[torrent.c] Invalid pieces byte string, len %zu is not a multiple of %d", pieces_str->len, SHA1_DIGEST_SIZE);
+        LOG_WARN("[torrent.c] Invalid pieces byte string, len %zu is not a "
+                 "multiple of %d",
+                 pieces_str->len, SHA1_DIGEST_SIZE);
         return NULL;
     }
 
-    torrent->num_pieces = pieces_str->len / SHA1_DIGEST_SIZE;
+    torrent->num_pieces  = pieces_str->len / SHA1_DIGEST_SIZE;
     torrent->pieces_left = torrent->num_pieces;
 
-    uint8_t **pieces = malloc(torrent->num_pieces * sizeof(uint8_t *));
+    uint8_t** pieces = malloc(torrent->num_pieces * sizeof(uint8_t*));
     if (pieces == NULL) {
         LOG_ERROR("[torrent.c] Failed to allocate memory for pieces");
         return NULL;
@@ -75,13 +79,15 @@ static uint8_t **torrent_create_pieces_array(torrent_t *torrent, byte_str_t *pie
             free(pieces);
             return NULL;
         }
-        memcpy(pieces[i], pieces_str->data + i * SHA1_DIGEST_SIZE, SHA1_DIGEST_SIZE);
+        memcpy(pieces[i], pieces_str->data + i * SHA1_DIGEST_SIZE,
+               SHA1_DIGEST_SIZE);
     }
 
     return pieces;
 }
 
-static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, const char *output_path) {
+static int torrent_get_files(torrent_t* torrent, bencode_node_t* files_node,
+                             const char* output_path) {
     if (torrent == NULL) {
         LOG_WARN("[torrent.c] Must provide a torrent");
         return -1;
@@ -110,16 +116,18 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
 
     uint64_t total_down = 0;
 
-    list_t *files = files_node->value.l;
-    for (const list_iterator_t *it = list_iterator_first(files); it != NULL; it = list_iterator_next(it)) {
-        bencode_node_t *file_node = (bencode_node_t *)list_iterator_get(it);
+    list_t* files = files_node->value.l;
+    for (const list_iterator_t* it = list_iterator_first(files); it != NULL;
+         it                        = list_iterator_next(it)) {
+        bencode_node_t* file_node = (bencode_node_t*)list_iterator_get(it);
         if (file_node == NULL) {
             LOG_WARN("[torrent.c] Missing file node in files list");
             return -1;
         }
 
-        dict_t *file_dict = file_node->value.d;
-        bencode_node_t *length_node = (bencode_node_t *)dict_get(file_dict, "length");
+        dict_t*         file_dict = file_node->value.d;
+        bencode_node_t* length_node
+            = (bencode_node_t*)dict_get(file_dict, "length");
         if (length_node == NULL) {
             LOG_WARN("[torrent.c] Missing length key in file dictionary");
             return -1;
@@ -127,7 +135,8 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
 
         int64_t file_length = length_node->value.i;
 
-        bencode_node_t *path_node = (bencode_node_t *)dict_get(file_dict, "path");
+        bencode_node_t* path_node
+            = (bencode_node_t*)dict_get(file_dict, "path");
         if (path_node == NULL) {
             LOG_WARN("[torrent.c] Missing path key in file dictionary");
             return -1;
@@ -137,17 +146,19 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
         strcpy(path, output_path);
         size_t path_len = strlen(output_path);
 
-        list_t *path_list = path_node->value.l;
-        size_t i = 0; // used to create subdirectories
-        for (const list_iterator_t *it = list_iterator_first(path_list); it != NULL; it = list_iterator_next(it)) {
-            bencode_node_t *path_part_node = (bencode_node_t *)list_iterator_get(it);
+        list_t* path_list = path_node->value.l;
+        size_t  i         = 0; // used to create subdirectories
+        for (const list_iterator_t* it = list_iterator_first(path_list);
+             it != NULL; it            = list_iterator_next(it)) {
+            bencode_node_t* path_part_node
+                = (bencode_node_t*)list_iterator_get(it);
             if (path_part_node == NULL) {
                 LOG_WARN("[torrent.c] Missing path part node in path list");
                 return -1;
             }
 
-            char *path_part = (char *)path_part_node->value.s->data;
-            size_t part_len = strlen(path_part);
+            char*  path_part = (char*)path_part_node->value.s->data;
+            size_t part_len  = strlen(path_part);
             if (path_len + part_len + 1 > 512) {
                 LOG_WARN("[torrent.c] Path is too long: %s", path);
                 return -1;
@@ -162,7 +173,8 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
 
             if (i < list_size(path_list) - 1) {
                 if (create_dir(path)) {
-                    LOG_ERROR("[torrent.c] Failed to create subdirectory `%s`", path);
+                    LOG_ERROR("[torrent.c] Failed to create subdirectory `%s`",
+                              path);
                     return -1;
                 }
             }
@@ -170,14 +182,15 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
             ++i;
         }
 
-        LOG_DEBUG("[torrent.c] Adding file `%s` with length %zu", path, (size_t)file_length);
+        LOG_DEBUG("[torrent.c] Adding file `%s` with length %zu", path,
+                  (size_t)file_length);
 
-        file_t *file = file_create(path, (size_t)file_length);
+        file_t* file = file_create(path, (size_t)file_length);
         if (file == NULL) {
             return -1;
         }
 
-        if (list_push(torrent->files, &file, sizeof(file_t *))) {
+        if (list_push(torrent->files, &file, sizeof(file_t*))) {
             free(file);
             return -1;
         }
@@ -189,7 +202,8 @@ static int torrent_get_files(torrent_t *torrent, bencode_node_t *files_node, con
     return 0;
 }
 
-static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output_path) {
+static int torrent_get_info(torrent_t* torrent, dict_t* info,
+                            const char* output_path) {
     if (torrent == NULL) {
         LOG_WARN("[torrent.c] Must provide a torrent");
         return -1;
@@ -205,7 +219,8 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
         return -1;
     }
 
-    byte_str_t *pieces_str = (byte_str_t *)((bencode_node_t *)dict_get(info, "pieces"))->value.s;
+    byte_str_t* pieces_str
+        = (byte_str_t*)((bencode_node_t*)dict_get(info, "pieces"))->value.s;
     if (pieces_str == NULL) {
         LOG_WARN("[torrent.c] Missing pieces key in torrent info");
         return -1;
@@ -214,7 +229,8 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
 
     LOG_DEBUG("[torrent.c] Torrent has %zu pieces", torrent->num_pieces);
 
-    int64_t piece_length = (int64_t)((bencode_node_t *)dict_get(info, "piece length"))->value.i;
+    int64_t piece_length
+        = (int64_t)((bencode_node_t*)dict_get(info, "piece length"))->value.i;
     if (piece_length == 0) {
         LOG_WARN("[torrent.c] Missing piece length key in torrent info");
         torrent_free_pieces(torrent);
@@ -222,17 +238,18 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
     }
     torrent->piece_length = (size_t)piece_length;
 
-    LOG_DEBUG("[torrent.c] Torrent has piece length of %zu bytes", torrent->piece_length);
+    LOG_DEBUG("[torrent.c] Torrent has piece length of %zu bytes",
+              torrent->piece_length);
 
-    bencode_node_t *name_node = (bencode_node_t *)dict_get(info, "name");
+    bencode_node_t* name_node = (bencode_node_t*)dict_get(info, "name");
     if (name_node == NULL) {
         LOG_WARN("[torrent.c] Missing name key in torrent info");
         torrent_free_pieces(torrent);
         return -1;
     }
-    char *name = (char *)name_node->value.s->data;
+    char* name = (char*)name_node->value.s->data;
 
-    char *path = calloc(strlen(output_path) + strlen(name) + 2, sizeof(char));
+    char* path = calloc(strlen(output_path) + strlen(name) + 2, sizeof(char));
     if (path == NULL) {
         LOG_ERROR("[torrent.c] Failed to allocate memory for file path");
         torrent_free_pieces(torrent);
@@ -245,13 +262,13 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
         sprintf(path, "%s/%s", output_path, name);
     }
 
-    bencode_node_t *length_node = (bencode_node_t *)dict_get(info, "length");
+    bencode_node_t* length_node = (bencode_node_t*)dict_get(info, "length");
     if (length_node != NULL) {
         LOG_DEBUG("[torrent.c] Torrent has a single file with name `%s`", name);
 
         int64_t file_length = length_node->value.i;
 
-        file_t *file = file_create(path, (size_t)file_length);
+        file_t* file = file_create(path, (size_t)file_length);
         if (file == NULL) {
             torrent_free_pieces(torrent);
             free(path);
@@ -261,7 +278,7 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
         // Free path since it is copied into the file object
         free(path);
 
-        if (list_push(torrent->files, &file, sizeof(file_t *))) {
+        if (list_push(torrent->files, &file, sizeof(file_t*))) {
             torrent_free_pieces(torrent);
             free(file);
             return -1;
@@ -273,7 +290,7 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
 
     LOG_DEBUG("[torrent.c] Torrent has multiple files");
 
-    bencode_node_t *files_node = (bencode_node_t *)dict_get(info, "files");
+    bencode_node_t* files_node = (bencode_node_t*)dict_get(info, "files");
     if (files_node == NULL) {
         LOG_WARN("[torrent.c] Missing files key in torrent info");
         torrent_free_pieces(torrent);
@@ -290,7 +307,7 @@ static int torrent_get_info(torrent_t *torrent, dict_t *info, const char *output
     return 0;
 }
 
-torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
+torrent_t* torrent_create(bencode_node_t* node, const char* output_path) {
     if (node == NULL) {
         LOG_WARN("[torrent.c] Must provide a bencode node");
         return NULL;
@@ -301,24 +318,25 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
         return NULL;
     }
 
-    torrent_t *torrent = malloc(sizeof(torrent_t));
+    torrent_t* torrent = malloc(sizeof(torrent_t));
     if (torrent == NULL) {
         LOG_ERROR("[torrent.c] Failed to allocate memory for torrent");
         return NULL;
     }
 
     torrent->max_peers = TORRENT_DEFAULT_MAX_PEERS;
-    
+
     LOG_DEBUG("[torrent.c] Getting announce key from torrent file");
 
-    bencode_node_t *announce_node = (bencode_node_t *)dict_get(node->value.d, "announce");
+    bencode_node_t* announce_node
+        = (bencode_node_t*)dict_get(node->value.d, "announce");
     if (announce_node == NULL) {
         LOG_WARN("[torrent.c] Missing announce key in torrent file");
         free(torrent);
         return NULL;
     }
 
-    char *announce = (char *)announce_node->value.s->data;
+    char* announce = (char*)announce_node->value.s->data;
     if (announce == NULL) {
         LOG_WARN("[torrent.c] Missing announce key in torrent file");
         free(torrent);
@@ -335,7 +353,8 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
 
     LOG_DEBUG("[torrent.c] Getting creation date key from torrent file");
 
-    bencode_node_t *creation_date_node = (bencode_node_t *)dict_get(node->value.d, "creation date");
+    bencode_node_t* creation_date_node
+        = (bencode_node_t*)dict_get(node->value.d, "creation date");
     if (creation_date_node != NULL) {
         torrent->creation_date = (uint32_t)creation_date_node->value.i;
     } else {
@@ -345,9 +364,10 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
 
     LOG_DEBUG("[torrent.c] Getting comment key from torrent file");
 
-    bencode_node_t *comment_node = (bencode_node_t *)dict_get(node->value.d, "comment");
+    bencode_node_t* comment_node
+        = (bencode_node_t*)dict_get(node->value.d, "comment");
     if (comment_node != NULL) {
-        char *comment = (char *)comment_node->value.s->data;
+        char* comment    = (char*)comment_node->value.s->data;
         torrent->comment = calloc(strlen(comment) + 1, sizeof(char));
         if (torrent->comment == NULL) {
             LOG_ERROR("[torrent.c] Failed to allocate memory for comment");
@@ -364,9 +384,10 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
 
     LOG_DEBUG("[torrent.c] Getting created by key from torrent file");
 
-    bencode_node_t *created_by_node = (bencode_node_t *)dict_get(node->value.d, "created by");
+    bencode_node_t* created_by_node
+        = (bencode_node_t*)dict_get(node->value.d, "created by");
     if (created_by_node != NULL) {
-        char *created_by = (char *)created_by_node->value.s->data;
+        char* created_by    = (char*)created_by_node->value.s->data;
         torrent->created_by = calloc(strlen(created_by) + 1, sizeof(char));
         if (torrent->created_by == NULL) {
             LOG_ERROR("[torrent.c] Failed to allocate memory for created by");
@@ -384,7 +405,7 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
 
     LOG_DEBUG("[torrent.c] Getting info key from torrent file");
 
-    bencode_node_t *info = (bencode_node_t *)dict_get(node->value.d, "info");
+    bencode_node_t* info = (bencode_node_t*)dict_get(node->value.d, "info");
     if (info == NULL) {
         LOG_WARN("[torrent.c] Missing info key in torrent file");
         free(torrent->created_by);
@@ -396,7 +417,7 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
 
     memcpy(torrent->info_hash, info->digest, SHA1_DIGEST_SIZE);
 
-    torrent->files = list_create((list_free_data_fn_t) torrent_free_files);
+    torrent->files = list_create((list_free_data_fn_t)torrent_free_files);
     if (torrent->files == NULL) {
         LOG_ERROR("[torrent.c] Failed to create files list");
         free(torrent->created_by);
@@ -418,7 +439,7 @@ torrent_t *torrent_create(bencode_node_t *node, const char *output_path) {
     return torrent;
 }
 
-void torrent_free(torrent_t *torrent) {
+void torrent_free(torrent_t* torrent) {
     if (torrent == NULL) {
         LOG_WARN("[torrent.c] Trying to free NULL torrent");
         return;

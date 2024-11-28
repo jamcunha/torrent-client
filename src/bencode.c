@@ -1,4 +1,5 @@
 #include "bencode.h"
+
 #include "byte_str.h"
 #include "dict.h"
 #include "list.h"
@@ -11,8 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static bencode_node_t *bencode_node_create(bencode_type_t type) {
-    bencode_node_t *node = malloc(sizeof(bencode_node_t));
+static bencode_node_t* bencode_node_create(bencode_type_t type) {
+    bencode_node_t* node = malloc(sizeof(bencode_node_t));
     if (node == NULL) {
         LOG_ERROR("[bencode.c] Failed to allocate memory for bencode node");
         return NULL;
@@ -22,7 +23,7 @@ static bencode_node_t *bencode_node_create(bencode_type_t type) {
     return node;
 }
 
-static char *bencode_type_to_string(bencode_type_t type) {
+static char* bencode_type_to_string(bencode_type_t type) {
     switch (type) {
     case BENCODE_INT:
         return "INT";
@@ -40,29 +41,32 @@ static char *bencode_type_to_string(bencode_type_t type) {
 // parsing a type of bencode may need to parse other types of bencode
 // so we need to declare the parsing functions before we define them
 
-static bencode_node_t *bencode_parse_str(const char *data, const char **endptr);
-static bencode_node_t *bencode_parse_int(const char *data, const char **endptr);
-static bencode_node_t *bencode_parse_list(const char *data, const char **endptr);
-static bencode_node_t *bencode_parse_dict(const char *data, const char **endptr);
+static bencode_node_t* bencode_parse_str(const char* data, const char** endptr);
+static bencode_node_t* bencode_parse_int(const char* data, const char** endptr);
+static bencode_node_t* bencode_parse_list(const char*  data,
+                                          const char** endptr);
+static bencode_node_t* bencode_parse_dict(const char*  data,
+                                          const char** endptr);
 
-static bencode_node_t *bencode_parse_str(const char *data, const char **endptr) {
+static bencode_node_t* bencode_parse_str(const char*  data,
+                                         const char** endptr) {
     if (data == NULL) {
         LOG_WARN("[bencode.c] Must provide a string to parse");
         return NULL;
     }
 
-    uint64_t len = strtoull(data, (char **)endptr, 10);
+    uint64_t len = strtoull(data, (char**)endptr, 10);
     assert(**endptr == ':');
     (*endptr)++;
 
     LOG_DEBUG("[bencode.c] Parsing string of length %lu", len);
 
-    bencode_node_t *node = bencode_node_create(BENCODE_STR);
+    bencode_node_t* node = bencode_node_create(BENCODE_STR);
     if (node == NULL) {
         return NULL;
     }
 
-    node->value.s = byte_str_create((uint8_t *)*endptr, len);
+    node->value.s = byte_str_create((uint8_t*)*endptr, len);
     if (node->value.s == NULL) {
         free(node);
         return NULL;
@@ -73,7 +77,8 @@ static bencode_node_t *bencode_parse_str(const char *data, const char **endptr) 
     return node;
 }
 
-static bencode_node_t *bencode_parse_int(const char *data, const char **endptr) {
+static bencode_node_t* bencode_parse_int(const char*  data,
+                                         const char** endptr) {
     if (data == NULL) {
         LOG_WARN("[bencode.c] Must provide an integer to parse");
         return NULL;
@@ -84,11 +89,11 @@ static bencode_node_t *bencode_parse_int(const char *data, const char **endptr) 
 
     LOG_DEBUG("[bencode.c] Parsing integer");
 
-    int64_t i = strtoll(data, (char **)endptr, 10);
+    int64_t i = strtoll(data, (char**)endptr, 10);
     assert(**endptr == 'e');
     (*endptr)++;
 
-    bencode_node_t *node = bencode_node_create(BENCODE_INT);
+    bencode_node_t* node = bencode_node_create(BENCODE_INT);
     if (node == NULL) {
         return NULL;
     }
@@ -97,7 +102,8 @@ static bencode_node_t *bencode_parse_int(const char *data, const char **endptr) 
     return node;
 }
 
-static bencode_node_t *bencode_parse_list(const char *data, const char **endptr) {
+static bencode_node_t* bencode_parse_list(const char*  data,
+                                          const char** endptr) {
     if (data == NULL) {
         LOG_WARN("[bencode.c] Must provide a list to parse");
         return NULL;
@@ -108,12 +114,12 @@ static bencode_node_t *bencode_parse_list(const char *data, const char **endptr)
 
     LOG_DEBUG("[bencode.c] Parsing list");
 
-    bencode_node_t *node = bencode_node_create(BENCODE_LIST);
+    bencode_node_t* node = bencode_node_create(BENCODE_LIST);
     if (node == NULL) {
         return NULL;
     }
 
-    node->value.l = list_create((list_free_data_fn_t) bencode_free);
+    node->value.l = list_create((list_free_data_fn_t)bencode_free);
     if (node->value.l == NULL) {
         free(node);
         return NULL;
@@ -122,14 +128,15 @@ static bencode_node_t *bencode_parse_list(const char *data, const char **endptr)
     while (**endptr != 'e') {
         data = *endptr;
 
-        bencode_node_t *elem = bencode_parse(data, endptr);
+        bencode_node_t* elem = bencode_parse(data, endptr);
         if (elem == NULL) {
             list_free(node->value.l);
             free(node);
             return NULL;
         }
 
-        LOG_DEBUG("[bencode.c] Adding element of type %s to list", bencode_type_to_string(elem->type));
+        LOG_DEBUG("[bencode.c] Adding element of type %s to list",
+                  bencode_type_to_string(elem->type));
 
         if (list_push(node->value.l, elem, sizeof(bencode_node_t))) {
             list_free(node->value.l);
@@ -138,7 +145,8 @@ static bencode_node_t *bencode_parse_list(const char *data, const char **endptr)
             return NULL;
         }
 
-        // NOTE: Just free the value pointer. Other pointers memory is managed by the element in the list
+        // NOTE: Just free the value pointer. Other pointers memory is managed
+        // by the element in the list
         free(elem);
     }
 
@@ -148,7 +156,8 @@ static bencode_node_t *bencode_parse_list(const char *data, const char **endptr)
     return node;
 }
 
-static bencode_node_t *bencode_parse_dict(const char *data, const char **endptr) {
+static bencode_node_t* bencode_parse_dict(const char*  data,
+                                          const char** endptr) {
     if (data == NULL) {
         LOG_WARN("[bencode.c] Must provide a dictionary to parse");
         return NULL;
@@ -159,12 +168,12 @@ static bencode_node_t *bencode_parse_dict(const char *data, const char **endptr)
 
     LOG_DEBUG("[bencode.c] Parsing dictionary");
 
-    bencode_node_t *node = bencode_node_create(BENCODE_DICT);
+    bencode_node_t* node = bencode_node_create(BENCODE_DICT);
     if (node == NULL) {
         return NULL;
     }
 
-    node->value.d = dict_create(1, (dict_free_data_fn_t) bencode_free);
+    node->value.d = dict_create(1, (dict_free_data_fn_t)bencode_free);
     if (node->value.d == NULL) {
         free(node);
         return NULL;
@@ -175,7 +184,7 @@ static bencode_node_t *bencode_parse_dict(const char *data, const char **endptr)
 
         LOG_DEBUG("[bencode.c] Parsing dictionary key");
 
-        bencode_node_t *key = bencode_parse_str(data, endptr);
+        bencode_node_t* key = bencode_parse_str(data, endptr);
         if (key == NULL) {
             dict_free(node->value.d);
             free(node);
@@ -186,16 +195,18 @@ static bencode_node_t *bencode_parse_dict(const char *data, const char **endptr)
 
         LOG_DEBUG("[bencode.c] Parsing dictionary value");
 
-        bencode_node_t *value = bencode_parse(data, endptr);
+        bencode_node_t* value = bencode_parse(data, endptr);
         if (value == NULL) {
             dict_free(node->value.d);
             free(node);
             return NULL;
         }
 
-        LOG_DEBUG("[bencode.c] Adding value of type %s to dictionary", bencode_type_to_string(value->type));
+        LOG_DEBUG("[bencode.c] Adding value of type %s to dictionary",
+                  bencode_type_to_string(value->type));
 
-        if (dict_add(node->value.d, (char *)key->value.s->data, value, sizeof(bencode_node_t))) {
+        if (dict_add(node->value.d, (char*)key->value.s->data, value,
+                     sizeof(bencode_node_t))) {
             dict_free(node->value.d);
             bencode_free(key);
             bencode_free(value);
@@ -206,7 +217,8 @@ static bencode_node_t *bencode_parse_dict(const char *data, const char **endptr)
         // free the key, we don't need it anymore
         bencode_free(key);
 
-        // NOTE: Just free the value pointer. Other pointers memory is managed by the entry in the dictionary
+        // NOTE: Just free the value pointer. Other pointers memory is managed
+        // by the entry in the dictionary
         free(value);
     }
 
@@ -216,13 +228,13 @@ static bencode_node_t *bencode_parse_dict(const char *data, const char **endptr)
     return node;
 }
 
-bencode_node_t *bencode_parse(const char *data, const char **endptr) {
+bencode_node_t* bencode_parse(const char* data, const char** endptr) {
     if (data == NULL) {
         LOG_WARN("[bencode.c] Must provide a bencode string to parse");
         return NULL;
     }
 
-    bencode_node_t *node = NULL;
+    bencode_node_t* node = NULL;
     if (isdigit(*data)) {
         node = bencode_parse_str(data, endptr);
     } else if (*data == 'i') {
@@ -235,15 +247,16 @@ bencode_node_t *bencode_parse(const char *data, const char **endptr) {
         assert(0 && "Invalid bencode type");
     }
 
-    // NOTE: sha1 is calculated for every node, maybe should be calculated only for dictionaries?
+    // NOTE: sha1 is calculated for every node, maybe should be calculated only
+    // for dictionaries?
     if (node != NULL) {
-        sha1((uint8_t *)data, *endptr - data, node->digest);
+        sha1((uint8_t*)data, *endptr - data, node->digest);
     }
 
     return node;
 }
 
-void bencode_free(bencode_node_t *node) {
+void bencode_free(bencode_node_t* node) {
     if (node == NULL) {
         LOG_WARN("[bencode.c] Trying to free NULL bencode node");
         return;

@@ -24,18 +24,18 @@ typedef struct {
 } peer_request_msg_t;
 
 typedef struct {
-    uint32_t index;
-    uint32_t begin;
-    byte_str_t *block;
+    uint32_t    index;
+    uint32_t    begin;
+    byte_str_t* block;
 } peer_piece_msg_t;
 
 typedef struct {
     peer_msg_type_t type;
     union {
-        uint32_t index;             // HAVE
-        byte_str_t *bitfield;       // BITFIELD
-        peer_request_msg_t request; // REQUEST, CANCEL
-        peer_piece_msg_t piece;     // PIECE
+        uint32_t           index;    // HAVE
+        byte_str_t*        bitfield; // BITFIELD
+        peer_request_msg_t request;  // REQUEST, CANCEL
+        peer_piece_msg_t   piece;    // PIECE
     } payload;
 } peer_msg_t;
 
@@ -46,7 +46,7 @@ typedef struct {
  * @param msg The message to send
  * @return int 0 if successful, -1 otherwise
  */
-int peer_send_msg(int sockfd, peer_msg_t *msg);
+int peer_send_msg(int sockfd, peer_msg_t* msg);
 
 /**
  * @brief Receive a message from a peer
@@ -54,13 +54,13 @@ int peer_send_msg(int sockfd, peer_msg_t *msg);
  * @param sockfd The socket file descriptor
  * @return peer_msg_t* The message received, NULL otherwise
  */
-peer_msg_t *peer_recv_msg(int sockfd);
+peer_msg_t* peer_recv_msg(int sockfd);
 
 /**
  * @brief Free a message
  *
  * @param msg The message
  */
-void peer_msg_free(peer_msg_t *msg);
+void peer_msg_free(peer_msg_t* msg);
 
 #endif // !PEER_MSG_H

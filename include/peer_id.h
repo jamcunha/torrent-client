@@ -18,6 +18,6 @@ void generate_peer_id(void);
  *
  * @return const char* The peer ID
  */
-const char *get_peer_id(void);
+const char* get_peer_id(void);
 
 #endif // !PEER_ID_H

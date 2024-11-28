@@ -18,10 +18,10 @@ typedef enum {
 typedef struct node {
     bencode_type_t type;
     union {
-        int64_t i;
-        byte_str_t *s;
-        list_t *l;
-        dict_t *d;
+        int64_t     i;
+        byte_str_t* s;
+        list_t*     l;
+        dict_t*     d;
     } value;
     uint8_t digest[SHA1_DIGEST_SIZE];
 } bencode_node_t;
@@ -33,13 +33,13 @@ typedef struct node {
  * @param endptr A pointer to the character after the parsed bencode string
  * @return bencode_node* The parsed bencode node
  */
-bencode_node_t *bencode_parse(const char *data, const char **endptr);
+bencode_node_t* bencode_parse(const char* data, const char** endptr);
 
 /**
  * @brief Free a bencode node
  *
  * @param node The node to free
  */
-void bencode_free(bencode_node_t *node);
+void bencode_free(bencode_node_t* node);
 
 #endif // !BENCODE_H

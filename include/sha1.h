@@ -10,17 +10,17 @@ typedef struct sha1_ctx sha1_ctx_t;
 
 /**
  * @brief Create a new SHA1 context
- * 
+ *
  * @return sha_ctx_t* The SHA1 context
  */
-sha1_ctx_t *sha1_create(void);
+sha1_ctx_t* sha1_create(void);
 
 /**
  * @brief Free the SHA1 context
  *
  * @param ctx The SHA1 context
  */
-void sha1_free(sha1_ctx_t *ctx);
+void sha1_free(sha1_ctx_t* ctx);
 
 /**
  * @brief Update the SHA1 context with data
@@ -31,7 +31,7 @@ void sha1_free(sha1_ctx_t *ctx);
  * @param data The data
  * @param size The size of the data
  */
-void sha1_update(sha1_ctx_t *ctx, const uint8_t *data, size_t size);
+void sha1_update(sha1_ctx_t* ctx, const uint8_t* data, size_t size);
 
 /**
  * @brief Finalize the SHA1 context and get the digest
@@ -43,7 +43,7 @@ void sha1_update(sha1_ctx_t *ctx, const uint8_t *data, size_t size);
  * @param ctx The SHA1 context
  * @param digest The digest
  */
-void sha1_final(sha1_ctx_t *ctx, uint8_t digest[SHA1_DIGEST_SIZE]);
+void sha1_final(sha1_ctx_t* ctx, uint8_t digest[SHA1_DIGEST_SIZE]);
 
 /**
  * @brief Compute the SHA1 digest of the data
@@ -55,6 +55,6 @@ void sha1_final(sha1_ctx_t *ctx, uint8_t digest[SHA1_DIGEST_SIZE]);
  * @param size The size of the data
  * @param digest The digest
  */
-void sha1(const uint8_t *data, size_t size, uint8_t digest[SHA1_DIGEST_SIZE]);
+void sha1(const uint8_t* data, size_t size, uint8_t digest[SHA1_DIGEST_SIZE]);
 
 #endif // !SHA1_H

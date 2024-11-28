@@ -7,13 +7,13 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 
-#define KB 1024
+#define KB         1024
 #define BLOCK_SIZE (16 * KB)
 
 typedef struct {
-    char id[PEER_ID_SIZE];
+    char               id[PEER_ID_SIZE];
     struct sockaddr_in addr;
-    bool choked;
+    bool               choked;
 } peer_t;
 
 /**
@@ -23,7 +23,7 @@ typedef struct {
  * @param peer The peer
  * @return int The socket file descriptor if successful, -1 otherwise
  */
-int peer_connection_create(torrent_t *torrent, peer_t *peer);
+int peer_connection_create(torrent_t* torrent, peer_t* peer);
 
 /**
  * @brief Download a piece from a peer
@@ -36,6 +36,7 @@ int peer_connection_create(torrent_t *torrent, peer_t *peer);
  * @param index The piece index
  * @return int 0 if successful, -1 otherwise
  */
-int download_piece(torrent_t *torrent, peer_t *peer, int sockfd, uint32_t index);
+int download_piece(torrent_t* torrent, peer_t* peer, int sockfd,
+                   uint32_t index);
 
 #endif // PEER_H

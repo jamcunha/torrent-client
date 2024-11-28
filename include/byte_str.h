@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 typedef struct byte_str {
-    size_t len;
+    size_t  len;
     uint8_t data[];
 } byte_str_t;
 
@@ -17,7 +17,7 @@ typedef struct byte_str {
  * @param len The length of the data
  * @return byte_str_t* The byte string
  */
-byte_str_t *byte_str_create(const uint8_t *data, size_t len);
+byte_str_t* byte_str_create(const uint8_t* data, size_t len);
 
 /**
  * @brief Compare two byte strings
@@ -29,6 +29,6 @@ byte_str_t *byte_str_create(const uint8_t *data, size_t len);
  *            otherwise the difference between the first differing byte
  *            (positive if a > b, negative if a < b)
  */
-int byte_str_cmp(const byte_str_t *a, const byte_str_t *b);
+int byte_str_cmp(const byte_str_t* a, const byte_str_t* b);
 
 #endif // !BYTE_STR_H
