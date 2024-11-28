@@ -32,7 +32,8 @@ $(BUILD_DIR):
 
 .PHONY: valgrind
 valgrind: $(BUILD_DIR)/$(BIN)
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $< -t $(VALGRIND_TORRENT_FILE)
+	mkdir -p $(BUILD_DIR)/output
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $< -t $(VALGRIND_TORRENT_FILE) -o $(BUILD_DIR)/output
 
 .PHONY: clean
 clean:
