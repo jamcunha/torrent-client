@@ -116,14 +116,12 @@ int main(int argc, char** argv) {
     tracker_response_free(res);
 
     LOG_INFO("  Peers:");
-    if (will_log(LOG_LEVEL_INFO)) {
-        for (const list_iterator_t* it = list_iterator_first(peers); it != NULL;
-             it                        = list_iterator_next(it)) {
-            peer_t* peer = list_iterator_get(it);
-            char    ip[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &peer->addr.sin_addr, ip, INET_ADDRSTRLEN);
-            LOG_INFO("    %s:%d", ip, ntohs(peer->addr.sin_port));
-        }
+    for (const list_iterator_t* it = list_iterator_first(peers);
+         it != NULL && will_log(LOG_LEVEL_INFO); it = list_iterator_next(it)) {
+        peer_t* peer = list_iterator_get(it);
+        char    ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &peer->addr.sin_addr, ip, INET_ADDRSTRLEN);
+        LOG_INFO("    %s:%d", ip, ntohs(peer->addr.sin_port));
     }
 
     peer_t* peer = list_at(peers, 0);
@@ -157,19 +155,23 @@ int main(int argc, char** argv) {
                  torrent->num_pieces);
     }
 
-    for (const list_iterator_t* it = list_iterator_first(peers); it != NULL;
-         it                        = list_iterator_next(it)) {
+    // NOTE: maybe we should download by block instead of by piece
+
+    for (const list_iterator_t* it = list_iterator_first(peers);
+         it != NULL && will_log(LOG_LEVEL_INFO); it = list_iterator_next(it)) {
         peer_t* peer = list_iterator_get(it);
         for (size_t i = 0; i < torrent->num_pieces; i++) {
             if (peer->sockfd != -1 && !peer_has_piece(peer, i)) {
                 LOG_ERROR("Peer %s:%d does not have piece %d",
                           inet_ntoa(peer->addr.sin_addr),
                           ntohs(peer->addr.sin_port), i);
+            } else {
+                LOG_INFO("Peer %s:%d has piece %d",
+                         inet_ntoa(peer->addr.sin_addr),
+                         ntohs(peer->addr.sin_port), i);
             }
         }
     }
-
-    // NOTE: maybe we should download by block instead of by piece
 
     list_free(peers);
     torrent_free(torrent);
