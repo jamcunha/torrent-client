@@ -47,6 +47,9 @@ typedef struct {
  */
 torrent_t* torrent_create(bencode_node_t* node, const char* output_path);
 
+torrent_t* torrent_create_from_file(const char* filename,
+                                    const char* output_path);
+
 /**
  * @brief Free the torrent object
  *

@@ -5,6 +5,9 @@
 #include <time.h>
 #include <unistd.h>
 
+// NOTE: Maybe have a log level for the log file and a log level for the
+//       console?
+
 struct log {
     log_level_t level;
     FILE*       file;
@@ -77,7 +80,6 @@ void log_message(log_level_t level, const char* format, ...) {
     FILE* output = log.file ? log.file : stderr;
 
     // Print time and log level
-    // TODO: Should we always print to the terminal?
     if (isatty(output->_fileno)) { // don't know why fileno() is not working
         fprintf(output, "[%s] %s[%s]%s ", time_buf, log_level_colour(level),
                 log_level_to_string(level), log_level_colour_reset());

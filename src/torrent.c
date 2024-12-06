@@ -7,8 +7,60 @@
 #include "log.h"
 #include "sha1.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+static bencode_node_t* torrent_file_parse(const char* filename) {
+    if (filename == NULL) {
+        LOG_WARN("Must provide a filename");
+        return NULL;
+    }
+
+    FILE* fp = fopen(filename, "rb");
+    if (fp == NULL) {
+        LOG_ERROR("[torrent_file.c] Failed to open file `%s` in read mode",
+                  filename);
+        return NULL;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    size_t size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    LOG_DEBUG("[torrent_file.c] Reading file `%s` of size %zu", filename, size);
+
+    char* data = malloc(size + 1);
+    if (data == NULL) {
+        LOG_ERROR("Failed to allocate memory for buffer of size %zu", size);
+        fclose(fp);
+        return NULL;
+    }
+
+    size_t read = fread(data, 1, size, fp);
+    if (read != size) {
+        LOG_ERROR("Failed to read file `%s`", filename);
+        free(data);
+        fclose(fp);
+        return NULL;
+    }
+
+    data[size]         = '\0';
+    const char* endptr = data;
+
+    bencode_node_t* node = bencode_parse(data, &endptr);
+    if (node == NULL) {
+        free(data);
+        fclose(fp);
+        return NULL;
+    }
+
+    LOG_DEBUG("[torrent_file.c] Closing file `%s`", filename);
+
+    free(data);
+    fclose(fp);
+    return node;
+}
 
 static void torrent_free_files(file_t** file_ptr) {
     if (file_ptr == NULL) {
@@ -435,6 +487,31 @@ torrent_t* torrent_create(bencode_node_t* node, const char* output_path) {
         free(torrent);
         return NULL;
     }
+
+    return torrent;
+}
+
+torrent_t* torrent_create_from_file(const char* filename,
+                                    const char* output_path) {
+
+    if (filename == NULL || output_path == NULL) {
+        LOG_WARN("[torrent.c] Must provide a filename and an output path");
+        return NULL;
+    }
+
+    bencode_node_t* node = torrent_file_parse(filename);
+    if (node == NULL) {
+        LOG_ERROR("[torrent.c] Failed to parse torrent file");
+        return NULL;
+    }
+
+    torrent_t* torrent = torrent_create(node, output_path);
+    if (torrent == NULL) {
+        LOG_ERROR("[torrent.c] Failed to create torrent");
+        bencode_free(node);
+        return NULL;
+    }
+    bencode_free(node);
 
     return torrent;
 }

@@ -1,7 +1,6 @@
 #include "log.h"
 #include "peer.h"
 #include "torrent.h"
-#include "torrent_file.h"
 #include "tracker.h"
 
 #include <arpa/inet.h>
@@ -77,19 +76,11 @@ int main(int argc, char** argv) {
 
     LOG_INFO("Parsing torrent file: %s", torrent_file);
 
-    bencode_node_t* node = torrent_file_parse(torrent_file);
-    if (node == NULL) {
-        LOG_ERROR("Failed to parse torrent file");
-        return 1;
-    }
-
-    torrent_t* torrent = torrent_create(node, output_path);
+    torrent_t* torrent = torrent_create_from_file(torrent_file, output_path);
     if (torrent == NULL) {
         LOG_ERROR("Failed to create torrent");
-        bencode_free(node);
         return 1;
     }
-    bencode_free(node);
 
     tracker_req_t* req = tracker_request_create(torrent, 6881);
     if (req == NULL) {

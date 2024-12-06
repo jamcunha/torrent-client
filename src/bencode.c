@@ -145,8 +145,7 @@ static bencode_node_t* bencode_parse_list(const char*  data,
             return NULL;
         }
 
-        // NOTE: Just free the value pointer. Other pointers memory is managed
-        // by the element in the list
+        // pointer copied to the list, free the original
         free(elem);
     }
 
@@ -217,8 +216,7 @@ static bencode_node_t* bencode_parse_dict(const char*  data,
         // free the key, we don't need it anymore
         bencode_free(key);
 
-        // NOTE: Just free the value pointer. Other pointers memory is managed
-        // by the entry in the dictionary
+        // pointer copied to the dictionary, free the original
         free(value);
     }
 
@@ -247,8 +245,7 @@ bencode_node_t* bencode_parse(const char* data, const char** endptr) {
         assert(0 && "Invalid bencode type");
     }
 
-    // NOTE: sha1 is calculated for every node, maybe should be calculated only
-    // for dictionaries?
+    // NOTE: calculate the hash only for the info dictionary?
     if (node != NULL) {
         sha1((uint8_t*)data, *endptr - data, node->digest);
     }
