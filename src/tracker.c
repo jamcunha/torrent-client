@@ -525,6 +525,11 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
         return NULL;
     }
 
+    res->failure_reason  = NULL;
+    res->warning_message = NULL;
+    res->tracker_id      = NULL;
+    res->peers           = NULL;
+
     bencode_node_t* failure_reason_node = dict_get(dict, "failure reason");
     if (failure_reason_node != NULL) {
         res->failure_reason = strdup((char*)failure_reason_node->value.s->data);
@@ -535,8 +540,13 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
             free(res);
             return NULL;
         }
-    } else {
-        res->failure_reason = NULL;
+
+        LOG_ERROR("[tracker.c] Tracker response failure reason: %s",
+                  res->failure_reason);
+
+        tracker_response_free(res);
+        bencode_free(node);
+        return NULL;
     }
 
     bencode_node_t* warning_message_node = dict_get(dict, "warning message");
@@ -551,8 +561,6 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
             free(res);
             return NULL;
         }
-    } else {
-        res->warning_message = NULL;
     }
 
     bencode_node_t* interval_node = dict_get(dict, "interval");
@@ -585,8 +593,6 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
             free(res);
             return NULL;
         }
-    } else {
-        res->tracker_id = NULL;
     }
 
     bencode_node_t* complete_node = dict_get(dict, "complete");

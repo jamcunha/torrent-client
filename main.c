@@ -143,6 +143,11 @@ int main(int argc, char** argv) {
     //       (priority queue, piece object with a count of how many peers
     //       have it)?
 
+    // NOTE: have a piece_t with:
+    //          - index
+    //          - peer_t* (peer working on the piece, NULL if no peer)
+    //          (add more info)
+
     for (size_t i = 0; i < torrent->num_pieces; i++) {
         if (download_piece(peer, torrent, i) == -1) {
             LOG_ERROR("Failed to download piece");
