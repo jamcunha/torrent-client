@@ -35,14 +35,17 @@ typedef struct {
 } tracker_req_t;
 
 typedef struct {
+    // Required fields
+    uint32_t interval;
+    list_t*  peers; // ipv6 peers not supported yet
+
+    // Optional fields
     char*    failure_reason;
     char*    warning_message;
-    uint32_t interval;
     uint32_t min_interval;
     char*    tracker_id;
     uint32_t complete;
     uint32_t incomplete;
-    list_t*  peers;
 } tracker_res_t;
 
 /**

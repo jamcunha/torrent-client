@@ -208,7 +208,6 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
         return -1;
     }
 
-    LOG_WARN("[peer.c] ONLY SINGLE FILE TORRENTS SUPPORTED");
     if (list_size(torrent->files) != 1) {
         LOG_ERROR("[peer.c] Only single file torrents are supported");
         return -1;
@@ -278,6 +277,12 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
         peer_msg_t* piece_msg = peer_recv_msg(peer->sockfd);
         if (piece_msg == NULL) {
             return -1;
+        }
+
+        // test
+        if (piece_msg->type == PEER_MSG_UNCHOKE) {
+            peer_msg_free(piece_msg);
+            continue;
         }
 
         switch (piece_msg->type) {

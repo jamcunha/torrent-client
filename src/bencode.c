@@ -73,7 +73,6 @@ static bencode_node_t* bencode_parse_str(const char*  data,
     }
 
     *endptr += len;
-
     return node;
 }
 

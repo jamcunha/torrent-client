@@ -8,7 +8,7 @@ INC_DIR=include
 CFLAGS+=-I$(INC_DIR)
 
 # Debug
-CFLAGS+=-g
+CFLAGS+=-ggdb
 
 OBJ_DIR=$(BUILD_DIR)/obj
 SRC_DIR=src
@@ -16,7 +16,7 @@ SRC_DIR=src
 SRC=$(wildcard $(SRC_DIR)/*.c)
 OBJ=$(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC))
 
-VALGRIND_TORRENT_FILE=torrent/example.torrent
+VALGRIND_TORRENT_FILE=torrent/debian-12.8.0-amd64-netinst.iso.torrent
 
 $(BUILD_DIR)/$(BIN): main.c $(OBJ) $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$(BIN) $(OBJ) $<

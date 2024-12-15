@@ -259,9 +259,30 @@ static char* tracker_recv(int sockfd) {
 
     buffer[total_recv] = '\0';
 
+    // BUG: For some reason, when returning the response body in a buffer,
+    //      it won't be correctly parsed, but if we write it to a file
+    //      and then read it back, it works fine
+
+    FILE* f = fopen("tracker_response.bencode", "w");
+    if (f == NULL) {
+        LOG_ERROR("[tracker.c] Failed to open file");
+        return NULL;
+    }
+
+    if (fwrite(extract_body_from_res(buffer), 1,
+               total_recv - (buffer - extract_body_from_res(buffer)), f)
+        != (size_t)(total_recv - (buffer - extract_body_from_res(buffer)))) {
+        LOG_ERROR("[tracker.c] Failed to write to file");
+        fclose(f);
+        return NULL;
+    }
+
+    fclose(f);
+
     LOG_DEBUG("[tracker.c] Buffer: %s", buffer);
 
-    return strdup(extract_body_from_res(buffer));
+    char* body = extract_body_from_res(buffer);
+    return strndup(body, total_recv - (body - buffer));
 }
 
 static list_t* parse_peer_list_compact(byte_str_t* peers_str) {
@@ -508,6 +529,41 @@ void tracker_request_free(tracker_req_t* req) {
 }
 
 tracker_res_t* parse_tracker_response(char* bencode_str) {
+    // BUG: For some reason, when returning the response body in a buffer,
+    //      it won't be correctly parsed, but if we write it to a file
+    //      and then read it back, it works fine.
+    //      This is a workaround for now.
+
+    FILE* f = fopen("tracker_response.bencode", "rb");
+    if (f == NULL) {
+        LOG_ERROR("[tracker.c] Failed to open file");
+        return NULL;
+    }
+
+    fseek(f, 0, SEEK_END);
+    size_t size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char* buffer = malloc(size);
+    if (buffer == NULL) {
+        LOG_ERROR("[tracker.c] Failed to allocate memory for buffer");
+        fclose(f);
+        return NULL;
+    }
+
+    if (fread(buffer, 1, size, f) != size) {
+        LOG_ERROR("[tracker.c] Failed to read file");
+        free(buffer);
+        fclose(f);
+        return NULL;
+    }
+
+    fclose(f);
+
+    bencode_str = buffer;
+
+    // NOTE: End of workaround
+
     const char*     endptr;
     bencode_node_t* node = bencode_parse(bencode_str, &endptr);
     if (node == NULL) {
@@ -529,6 +585,48 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
     res->warning_message = NULL;
     res->tracker_id      = NULL;
     res->peers           = NULL;
+
+    // Setting default values for optional fields
+    res->min_interval = 0;
+    res->complete     = 0;
+    res->incomplete   = 0;
+
+    bencode_node_t* interval_node = dict_get(dict, "interval");
+    if (interval_node != NULL) {
+        res->interval = interval_node->value.i;
+    } else {
+        LOG_ERROR("[tracker.c] Missing interval in tracker response");
+        bencode_free(node);
+        free(res->failure_reason);
+        free(res->warning_message);
+        free(res);
+        return NULL;
+    }
+
+    bencode_node_t* peers_node = dict_get(dict, "peers");
+    if (peers_node != NULL) {
+        if (peers_node->type == BENCODE_LIST) {
+            res->peers = parse_peer_list_dict(peers_node->value.l);
+        } else if (peers_node->type == BENCODE_STR) {
+            res->peers = parse_peer_list_compact(peers_node->value.s);
+        } else {
+            LOG_ERROR("[tracker.c] Invalid peers type in tracker response");
+            bencode_free(node);
+            free(res->failure_reason);
+            free(res->warning_message);
+            free(res->tracker_id);
+            free(res);
+            return NULL;
+        }
+    } else {
+        LOG_ERROR("[tracker.c] Missing peers in tracker response");
+        bencode_free(node);
+        free(res->failure_reason);
+        free(res->warning_message);
+        free(res->tracker_id);
+        free(res);
+        return NULL;
+    }
 
     bencode_node_t* failure_reason_node = dict_get(dict, "failure reason");
     if (failure_reason_node != NULL) {
@@ -563,23 +661,9 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
         }
     }
 
-    bencode_node_t* interval_node = dict_get(dict, "interval");
-    if (interval_node != NULL) {
-        res->interval = interval_node->value.i;
-    } else {
-        LOG_ERROR("[tracker.c] Missing interval in tracker response");
-        bencode_free(node);
-        free(res->failure_reason);
-        free(res->warning_message);
-        free(res);
-        return NULL;
-    }
-
     bencode_node_t* min_interval_node = dict_get(dict, "min interval");
     if (min_interval_node != NULL) {
         res->min_interval = min_interval_node->value.i;
-    } else {
-        res->min_interval = 0;
     }
 
     bencode_node_t* tracker_id_node = dict_get(dict, "tracker id");
@@ -598,52 +682,11 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
     bencode_node_t* complete_node = dict_get(dict, "complete");
     if (complete_node != NULL) {
         res->complete = complete_node->value.i;
-    } else {
-        LOG_ERROR("[tracker.c] Missing complete in tracker response");
-        bencode_free(node);
-        free(res->failure_reason);
-        free(res->warning_message);
-        free(res->tracker_id);
-        free(res);
-        return NULL;
     }
 
     bencode_node_t* incomplete_node = dict_get(dict, "incomplete");
     if (incomplete_node != NULL) {
         res->incomplete = incomplete_node->value.i;
-    } else {
-        LOG_ERROR("[tracker.c] Missing incomplete in tracker response");
-        bencode_free(node);
-        free(res->failure_reason);
-        free(res->warning_message);
-        free(res->tracker_id);
-        free(res);
-        return NULL;
-    }
-
-    bencode_node_t* peers_node = dict_get(dict, "peers");
-    if (peers_node != NULL) {
-        if (peers_node->type == BENCODE_LIST) {
-            res->peers = parse_peer_list_dict(peers_node->value.l);
-        } else if (peers_node->type == BENCODE_STR) {
-            res->peers = parse_peer_list_compact(peers_node->value.s);
-        } else {
-            LOG_ERROR("[tracker.c] Invalid peers type in tracker response");
-            bencode_free(node);
-            free(res->failure_reason);
-            free(res->warning_message);
-            free(res->tracker_id);
-            free(res);
-            return NULL;
-        }
-    } else {
-        LOG_ERROR("[tracker.c] Missing peers in tracker response");
-        bencode_free(node);
-        free(res->failure_reason);
-        free(res->warning_message);
-        free(res->tracker_id);
-        free(res);
-        return NULL;
     }
 
     bencode_free(node);

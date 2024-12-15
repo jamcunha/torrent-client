@@ -124,19 +124,48 @@ int main(int argc, char** argv) {
         LOG_INFO("    %s:%d", ip, ntohs(peer->addr.sin_port));
     }
 
-    peer_t* peer = list_at(peers, 0);
-
     // NOTE: have a pool of peers instead of a single one
 
-    if (peer_connect(peer, torrent->info_hash) == -1) {
-        LOG_ERROR("Failed to connect to peer");
+    peer_t* peer = NULL;
+
+    for (const list_iterator_t* it = list_iterator_first(peers); it != NULL;
+         it                        = list_iterator_next(it)) {
+        peer = list_iterator_get(it);
+        LOG_INFO("Connecting to peer %s:%d", inet_ntoa(peer->addr.sin_addr),
+                 ntohs(peer->addr.sin_port));
+
+        if (peer_connect(peer, torrent->info_hash) == 0) {
+            LOG_INFO("Connected to peer %s:%d", inet_ntoa(peer->addr.sin_addr),
+                     ntohs(peer->addr.sin_port));
+
+            // TODO: check if it has all the pieces
+            //       for now the download assumes the peer has all the pieces
+
+            bool has_all_pieces = true;
+
+            for (size_t i = 0; i < torrent->num_pieces; ++i) {
+                if (!peer_has_piece(peer, i)) {
+                    LOG_WARN("Peer %s:%d does not have piece %d",
+                             inet_ntoa(peer->addr.sin_addr),
+                             ntohs(peer->addr.sin_port), i);
+
+                    has_all_pieces = false;
+                    break;
+                }
+            }
+
+            if (has_all_pieces) {
+                break;
+            }
+        }
+    }
+
+    if (peer == NULL) {
+        LOG_ERROR("Failed to connect to any peer");
         list_free(peers);
         torrent_free(torrent);
         return 1;
     }
-
-    LOG_INFO("Connected to peer %s:%d", inet_ntoa(peer->addr.sin_addr),
-             ntohs(peer->addr.sin_port));
 
     // NOTE: Instead of downloading pieces in ascending order, we should
     //       download the rarest pieces first
@@ -161,22 +190,6 @@ int main(int argc, char** argv) {
     }
 
     // NOTE: maybe we should download by block instead of by piece
-
-    for (const list_iterator_t* it = list_iterator_first(peers);
-         it != NULL && will_log(LOG_LEVEL_INFO); it = list_iterator_next(it)) {
-        peer_t* peer = list_iterator_get(it);
-        for (size_t i = 0; i < torrent->num_pieces; i++) {
-            if (peer->sockfd != -1 && !peer_has_piece(peer, i)) {
-                LOG_ERROR("Peer %s:%d does not have piece %d",
-                          inet_ntoa(peer->addr.sin_addr),
-                          ntohs(peer->addr.sin_port), i);
-            } else {
-                LOG_INFO("Peer %s:%d has piece %d",
-                         inet_ntoa(peer->addr.sin_addr),
-                         ntohs(peer->addr.sin_port), i);
-            }
-        }
-    }
 
     list_free(peers);
     torrent_free(torrent);

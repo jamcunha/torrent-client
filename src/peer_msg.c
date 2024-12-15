@@ -215,6 +215,7 @@ peer_msg_t* peer_recv_msg(int sockfd) {
     case PEER_MSG_INTERESTED:
     case PEER_MSG_NOT_INTERESTED:
         if (left != 0) {
+            LOG_WARN("test");
             LOG_ERROR("[peer_msg.c] Invalid message length");
             peer_msg_free(msg);
             return NULL;
