@@ -261,23 +261,7 @@ static char* tracker_recv(int sockfd) {
 
     // BUG: For some reason, when returning the response body in a buffer,
     //      it won't be correctly parsed, but if we write it to a file
-    //      and then read it back, it works fine
-
-    FILE* f = fopen("tracker_response.bencode", "w");
-    if (f == NULL) {
-        LOG_ERROR("[tracker.c] Failed to open file");
-        return NULL;
-    }
-
-    if (fwrite(extract_body_from_res(buffer), 1,
-               total_recv - (buffer - extract_body_from_res(buffer)), f)
-        != (size_t)(total_recv - (buffer - extract_body_from_res(buffer)))) {
-        LOG_ERROR("[tracker.c] Failed to write to file");
-        fclose(f);
-        return NULL;
-    }
-
-    fclose(f);
+    //      and then read it back, it works fine (tested in debian iso torrent).
 
     LOG_DEBUG("[tracker.c] Buffer: %s", buffer);
 
@@ -531,38 +515,7 @@ void tracker_request_free(tracker_req_t* req) {
 tracker_res_t* parse_tracker_response(char* bencode_str) {
     // BUG: For some reason, when returning the response body in a buffer,
     //      it won't be correctly parsed, but if we write it to a file
-    //      and then read it back, it works fine.
-    //      This is a workaround for now.
-
-    FILE* f = fopen("tracker_response.bencode", "rb");
-    if (f == NULL) {
-        LOG_ERROR("[tracker.c] Failed to open file");
-        return NULL;
-    }
-
-    fseek(f, 0, SEEK_END);
-    size_t size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    char* buffer = malloc(size);
-    if (buffer == NULL) {
-        LOG_ERROR("[tracker.c] Failed to allocate memory for buffer");
-        fclose(f);
-        return NULL;
-    }
-
-    if (fread(buffer, 1, size, f) != size) {
-        LOG_ERROR("[tracker.c] Failed to read file");
-        free(buffer);
-        fclose(f);
-        return NULL;
-    }
-
-    fclose(f);
-
-    bencode_str = buffer;
-
-    // NOTE: End of workaround
+    //      and then read it back, it works fine (tested in debian iso torrent).
 
     const char*     endptr;
     bencode_node_t* node = bencode_parse(bencode_str, &endptr);
