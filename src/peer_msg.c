@@ -2,13 +2,13 @@
 
 #include "byte_str.h"
 #include "log.h"
-#include "sys/types.h"
 
 #include <assert.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 
 static uint32_t peer_msg_size(peer_msg_t* msg) {
     if (msg == NULL) {

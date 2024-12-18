@@ -1,11 +1,11 @@
 #include "peer_id.h"
 
 #include "log.h"
-#include "unistd.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
 static const char* client_id = "TC";
 static const char* version   = "0001";
