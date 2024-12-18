@@ -12,7 +12,7 @@
 
 typedef struct {
     int                sockfd;
-    char               id[PEER_ID_SIZE];
+    uint8_t            id[PEER_ID_SIZE];
     struct sockaddr_in addr;
     byte_str_t*        bitfield;
 

@@ -1,6 +1,8 @@
 #ifndef PEER_ID_H
 #define PEER_ID_H
 
+#include <stdint.h>
+
 #define PEER_ID_SIZE 20
 
 /**
@@ -18,6 +20,6 @@ void generate_peer_id(void);
  *
  * @return const char* The peer ID
  */
-const char* get_peer_id(void);
+const uint8_t* get_peer_id(void);
 
 #endif // !PEER_ID_H

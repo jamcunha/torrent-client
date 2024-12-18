@@ -4,7 +4,9 @@
 #include "file.h"
 #include "list.h"
 #include "log.h"
+#include "peer_id.h"
 #include "peer_msg.h"
+#include "sha1.h"
 
 #include <assert.h>
 #include <limits.h>
@@ -63,16 +65,16 @@ static int peer_send_handshake(int           sockfd,
     return 0;
 }
 
-static int peer_recv_handshake(int           sockfd,
+static int peer_recv_handshake(peer_t*       peer,
                                const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
-    if (sockfd < 0 || info_hash == NULL) {
-        LOG_WARN("[peer.c] Must provide a valid socket and info hash");
+    if (peer == NULL || info_hash == NULL) {
+        LOG_WARN("[peer.c] Must provide a valid peer and info hash");
         return -1;
     }
 
     uint8_t handshake[HANDSHAKE_LEN];
 
-    if (recv(sockfd, handshake, HANDSHAKE_LEN, 0) != HANDSHAKE_LEN) {
+    if (recv(peer->sockfd, handshake, HANDSHAKE_LEN, 0) != HANDSHAKE_LEN) {
         LOG_ERROR("[peer.c] Failed to receive handshake");
         return -1;
     }
@@ -93,14 +95,12 @@ static int peer_recv_handshake(int           sockfd,
         return -1;
     }
 
-    if (will_log(LOG_LEVEL_INFO)) {
-        uint8_t recv_peer_id[PEER_ID_SIZE + 1] = {0};
-        memcpy(recv_peer_id,
-               handshake + 1 + PROTOCOL_LEN + 8 + SHA1_DIGEST_SIZE,
-               PEER_ID_SIZE);
-        LOG_INFO("Received handshake from peer: %s", recv_peer_id);
-    }
+    // TODO: Find a way to check if the peer id given in creation is different
+    //       from the received one
+    memcpy(peer->id, handshake + 1 + PROTOCOL_LEN + 8 + SHA1_DIGEST_SIZE,
+           PEER_ID_SIZE);
 
+    LOG_INFO("Received handshake from peer: %s", peer->id);
     return 0;
 }
 
@@ -121,6 +121,8 @@ peer_t* peer_create(uint32_t ip, uint16_t port,
     peer->choked               = true;
     peer->bitfield             = NULL;
 
+    // NOTE: if the id received from the handshake is the same one
+    //       from the tracker, just remove this from the peer creation
     if (peer_id != NULL) {
         memcpy(peer->id, peer_id, PEER_ID_SIZE);
     }
@@ -148,7 +150,7 @@ int peer_connect(peer_t* peer, const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
         return -1;
     }
 
-    if (peer_recv_handshake(peer->sockfd, info_hash) != 0) {
+    if (peer_recv_handshake(peer, info_hash) != 0) {
         return -1;
     }
 
