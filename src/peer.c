@@ -165,9 +165,8 @@ int peer_connect(peer_t* peer, const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
         return -1;
     }
 
-    // copy bitfield
-    peer->bitfield = byte_str_create(bitfield_msg->payload.bitfield->data,
-                                     bitfield_msg->payload.bitfield->len);
+    peer->bitfield                 = bitfield_msg->payload.bitfield;
+    bitfield_msg->payload.bitfield = NULL;
 
     peer_msg_free(bitfield_msg);
     return 0;
