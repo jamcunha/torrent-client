@@ -47,6 +47,13 @@ typedef struct {
  */
 torrent_t* torrent_create(bencode_node_t* node, const char* output_path);
 
+/**
+ * @brief Create a new torrent object from a .torrent file
+ *
+ * @param filename The .torrent file name
+ * @param output_path The output path
+ * @return torrent_t* The torrent
+ */
 torrent_t* torrent_create_from_file(const char* filename,
                                     const char* output_path);
 

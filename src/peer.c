@@ -119,6 +119,7 @@ peer_t* peer_create(uint32_t ip, uint16_t port,
     peer->addr.sin_port        = port;
     peer->addr.sin_addr.s_addr = ip;
     peer->choked               = true;
+    peer->interested           = false;
     peer->bitfield             = NULL;
 
     // NOTE: if the id received from the handshake is the same one
@@ -220,6 +221,8 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
         return -1;
     }
 
+    peer->interested = true;
+
     while (peer->choked) {
         peer_msg_t* unchoke_msg = peer_recv_msg(peer->sockfd);
         if (unchoke_msg == NULL) {
@@ -231,7 +234,7 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
             peer->choked = false;
             break;
         case PEER_MSG_CHOKE:
-            assert(0 && "Peer choked, TODO: handle this");
+            assert(0 && "Peer sent CHOKE msg while choked");
             break;
         case PEER_MSG_HAVE:
             // TODO: update needed pieces
@@ -241,7 +244,7 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
             assert(0 && "Should not receive bitfield message after handshake");
             break;
         default:
-            // No need to handle other messages
+            // No need to handle other messages while choked
             break;
         }
         peer_msg_free(unchoke_msg);
@@ -280,12 +283,6 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
             return -1;
         }
 
-        // test
-        if (piece_msg->type == PEER_MSG_UNCHOKE) {
-            peer_msg_free(piece_msg);
-            continue;
-        }
-
         switch (piece_msg->type) {
         case PEER_MSG_CHOKE:
             peer->choked = true;
@@ -294,16 +291,12 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
             return -1;
         case PEER_MSG_UNCHOKE:
             assert(0 && "Should not receive unchoke message while unchoked");
-            peer_msg_free(piece_msg);
-            return -1;
         case PEER_MSG_HAVE:
             // TODO: update needed pieces
             //     for now assume peer has all pieces
             break;
         case PEER_MSG_BITFIELD:
             assert(0 && "Should not receive bitfield message after handshake");
-            peer_msg_free(piece_msg);
-            return -1;
         case PEER_MSG_PIECE:
             if (piece_msg->payload.piece.index != index
                 || piece_msg->payload.piece.begin != i) {

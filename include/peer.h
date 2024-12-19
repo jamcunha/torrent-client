@@ -17,8 +17,8 @@ typedef struct {
     byte_str_t*        bitfield;
 
     // NOTE: Maybe add a uint8_t state to keep track of more states
-    //       For now tracking if the peer is choked is enough
     bool choked;
+    bool interested;
 
     // NOTE: Future reference: check Deluge's lazy bitfield implementation
 } peer_t;
