@@ -7,13 +7,13 @@
 
 byte_str_t* byte_str_create(const uint8_t* data, size_t len) {
     if (data == NULL) {
-        LOG_WARN("[byte_str.c] Must provide data to create byte string");
+        LOG_WARN("Must provide data to create byte string");
         return NULL;
     }
 
     byte_str_t* byte_str = malloc(sizeof(byte_str_t) + len + 1);
     if (byte_str == NULL) {
-        LOG_ERROR("[byte_str.c] Failed to allocate memory for byte string");
+        LOG_ERROR("Failed to allocate memory for byte string");
         return NULL;
     }
 
@@ -26,7 +26,7 @@ byte_str_t* byte_str_create(const uint8_t* data, size_t len) {
 
 int byte_str_cmp(const byte_str_t* a, const byte_str_t* b) {
     if (a == NULL || b == NULL) {
-        LOG_WARN("[byte_str.c] Must provide two byte strings to compare");
+        LOG_WARN("Must provide two byte strings to compare");
         return -1;
     }
 
@@ -39,14 +39,14 @@ int byte_str_cmp(const byte_str_t* a, const byte_str_t* b) {
 
 get_byte_result_t byte_str_get_byte(const byte_str_t* str, size_t idx) {
     if (str == NULL) {
-        LOG_WARN("[byte_str.c] Must provide a byte string");
+        LOG_WARN("Must provide a byte string");
         return (get_byte_result_t){.success = false};
     }
 
     get_byte_result_t result = {.success = false};
 
     if (idx >= str->len) {
-        LOG_WARN("[byte_str.c] Index out of bounds");
+        LOG_WARN("Index out of bounds");
         return result;
     }
 

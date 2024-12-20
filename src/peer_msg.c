@@ -37,7 +37,7 @@ static const char* peer_msg_type_str(peer_msg_type_t type) {
 
 static uint32_t peer_msg_size(peer_msg_t* msg) {
     if (msg == NULL) {
-        LOG_WARN("[peer_msg.c] Must provide a message");
+        LOG_WARN("Must provide a message");
         return 0;
     }
 
@@ -57,26 +57,26 @@ static uint32_t peer_msg_size(peer_msg_t* msg) {
         return sizeof(peer_msg_type_t) + 2 * sizeof(uint32_t)
                + msg->payload.piece.block->len;
     default:
-        LOG_ERROR("[peer_msg.c] Invalid message type");
+        LOG_ERROR("Invalid message type");
         return -1;
     }
 }
 
 static int send_have_msg(int sockfd, peer_msg_t* msg) {
     if (msg == NULL) {
-        LOG_WARN("[peer_msg.c] Must provide a message");
+        LOG_WARN("Must provide a message");
         return -1;
     }
 
     if (msg->type != PEER_MSG_HAVE) {
-        LOG_ERROR("[peer_msg.c] Trying to send %s message as a HAVE message",
+        LOG_ERROR("Trying to send %s message as a HAVE message",
                   peer_msg_type_str(msg->type));
         return -1;
     }
 
     uint32_t idx = htonl(msg->payload.index);
     if (send(sockfd, &idx, sizeof(idx), 0) != sizeof(idx)) {
-        LOG_ERROR("[peer_msg.c] Failed to send HAVE message");
+        LOG_ERROR("Failed to send HAVE message");
         return -1;
     }
 
@@ -85,21 +85,20 @@ static int send_have_msg(int sockfd, peer_msg_t* msg) {
 
 static int send_bitfield_msg(int sockfd, peer_msg_t* msg) {
     if (msg == NULL) {
-        LOG_WARN("[peer_msg.c] Must provide a message");
+        LOG_WARN("Must provide a message");
         return -1;
     }
 
     if (msg->type != PEER_MSG_BITFIELD) {
-        LOG_ERROR(
-            "[peer_msg.c] Trying to send %s message as a BITFIELD message",
-            peer_msg_type_str(msg->type));
+        LOG_ERROR("Trying to send %s message as a BITFIELD message",
+                  peer_msg_type_str(msg->type));
         return -1;
     }
 
     ssize_t sent = send(sockfd, msg->payload.bitfield->data,
                         msg->payload.bitfield->len, 0);
     if (sent < 0 || (size_t)sent != msg->payload.bitfield->len) {
-        LOG_ERROR("[peer_msg.c] Failed to send BITFIELD message");
+        LOG_ERROR("Failed to send BITFIELD message");
         return -1;
     }
 
@@ -109,12 +108,12 @@ static int send_bitfield_msg(int sockfd, peer_msg_t* msg) {
 // CANCEL messages also use this function
 static int send_request_msg(int sockfd, peer_msg_t* msg) {
     if (msg == NULL) {
-        LOG_WARN("[peer_msg.c] Must provide a message");
+        LOG_WARN("Must provide a message");
         return -1;
     }
 
     if (msg->type != PEER_MSG_REQUEST && msg->type != PEER_MSG_CANCEL) {
-        LOG_ERROR("[peer_msg.c] Trying to send %s message as a REQUEST/CANCEL "
+        LOG_ERROR("Trying to send %s message as a REQUEST/CANCEL "
                   "message",
                   peer_msg_type_str(msg->type));
         return -1;
@@ -125,20 +124,17 @@ static int send_request_msg(int sockfd, peer_msg_t* msg) {
     uint32_t length = htonl(msg->payload.request.length);
 
     if (send(sockfd, &idx, sizeof(idx), 0) != sizeof(idx)) {
-        LOG_ERROR("[peer_msg.c] Failed to send %s message",
-                  peer_msg_type_str(msg->type));
+        LOG_ERROR("Failed to send %s message", peer_msg_type_str(msg->type));
         return -1;
     }
 
     if (send(sockfd, &begin, sizeof(begin), 0) != sizeof(begin)) {
-        LOG_ERROR("[peer_msg.c] Failed to send %s message",
-                  peer_msg_type_str(msg->type));
+        LOG_ERROR("Failed to send %s message", peer_msg_type_str(msg->type));
         return -1;
     }
 
     if (send(sockfd, &length, sizeof(length), 0) != sizeof(length)) {
-        LOG_ERROR("[peer_msg.c] Failed to send %s message",
-                  peer_msg_type_str(msg->type));
+        LOG_ERROR("Failed to send %s message", peer_msg_type_str(msg->type));
         return -1;
     }
 
@@ -147,20 +143,20 @@ static int send_request_msg(int sockfd, peer_msg_t* msg) {
 
 static int recv_piece_msg(int sockfd, peer_msg_t* msg, size_t len) {
     if (msg == NULL) {
-        LOG_WARN("[peer_msg.c] Must provide a message");
+        LOG_WARN("Must provide a message");
         return -1;
     }
 
     uint32_t idx;
     if (recv(sockfd, &idx, sizeof(uint32_t), 0) != sizeof(uint32_t)) {
-        LOG_ERROR("[peer_msg.c] Failed to receive piece message");
+        LOG_ERROR("Failed to receive piece message");
         return -1;
     }
     msg->payload.piece.index = ntohl(idx);
 
     uint32_t begin;
     if (recv(sockfd, &begin, sizeof(uint32_t), 0) != sizeof(uint32_t)) {
-        LOG_ERROR("[peer_msg.c] Failed to receive piece message");
+        LOG_ERROR("Failed to receive piece message");
         return -1;
     }
     msg->payload.piece.begin = ntohl(begin);
@@ -172,7 +168,7 @@ static int recv_piece_msg(int sockfd, peer_msg_t* msg, size_t len) {
         ssize_t recv_len
             = recv(sockfd, buf + total_recv, block_len - total_recv, 0);
         if (recv_len <= 0) {
-            LOG_ERROR("[peer_msg.c] Failed to receive piece message");
+            LOG_ERROR("Failed to receive piece message");
             return -1;
         }
         total_recv += recv_len;
@@ -184,19 +180,19 @@ static int recv_piece_msg(int sockfd, peer_msg_t* msg, size_t len) {
 
 int peer_send_msg(int sockfd, peer_msg_t* msg) {
     if (sockfd < 0 || msg == NULL) {
-        LOG_WARN("[peer_msg.c] Must provide a valid socket and message");
+        LOG_WARN("Must provide a valid socket and message");
         return -1;
     }
 
     uint32_t len = htonl(peer_msg_size(msg));
 
     if (send(sockfd, &len, sizeof(len), 0) != sizeof(len)) {
-        LOG_ERROR("[peer_msg.c] Failed to send message length");
+        LOG_ERROR("Failed to send message length");
         return -1;
     }
 
     if (send(sockfd, &msg->type, sizeof(msg->type), 0) != sizeof(msg->type)) {
-        LOG_ERROR("[peer_msg.c] Failed to send message type");
+        LOG_ERROR("Failed to send message type");
         return -1;
     }
 
@@ -227,20 +223,20 @@ int peer_send_msg(int sockfd, peer_msg_t* msg) {
 
 peer_msg_t* peer_recv_msg(int sockfd) {
     if (sockfd < 0) {
-        LOG_WARN("[peer_msg.c] Must provide a valid socket");
+        LOG_WARN("Must provide a valid socket");
         return NULL;
     }
 
     uint32_t len;
     if (recv(sockfd, &len, sizeof(len), 0) != sizeof(len)) {
-        LOG_ERROR("[peer_msg.c] Failed to receive message length");
+        LOG_ERROR("Failed to receive message length");
         return NULL;
     }
     len = ntohl(len);
 
     peer_msg_type_t type;
     if (recv(sockfd, &type, sizeof(type), 0) != sizeof(type)) {
-        LOG_ERROR("[peer_msg.c] Failed to receive message type");
+        LOG_ERROR("Failed to receive message type");
         return NULL;
     }
 
@@ -248,7 +244,7 @@ peer_msg_t* peer_recv_msg(int sockfd) {
 
     peer_msg_t* msg = malloc(sizeof(peer_msg_t));
     if (msg == NULL) {
-        LOG_ERROR("[peer_msg.c] Failed to allocate message");
+        LOG_ERROR("Failed to allocate message");
         return NULL;
     }
 
@@ -261,20 +257,20 @@ peer_msg_t* peer_recv_msg(int sockfd) {
     case PEER_MSG_INTERESTED:
     case PEER_MSG_NOT_INTERESTED:
         if (left != 0) {
-            LOG_ERROR("[peer_msg.c] Invalid message length");
+            LOG_ERROR("Invalid message length");
             peer_msg_free(msg);
             return NULL;
         }
         return msg;
     case PEER_MSG_HAVE:
         // NOTE: For now, we don't receive HAVE messages
-        LOG_WARN("[peer_msg.c] HAVE message not implemented");
+        LOG_WARN("HAVE message not implemented");
         peer_msg_free(msg);
         return NULL;
     case PEER_MSG_BITFIELD: {
         uint8_t buf[left];
         if (recv(sockfd, buf, left, 0) != left) {
-            LOG_ERROR("[peer_msg.c] Failed to receive message");
+            LOG_ERROR("Failed to receive message");
             peer_msg_free(msg);
             return NULL;
         }
@@ -288,7 +284,7 @@ peer_msg_t* peer_recv_msg(int sockfd) {
     }
     case PEER_MSG_REQUEST:
         // NOTE: For now, we don't receive REQUEST messages
-        LOG_WARN("[peer_msg.c] REQUEST message not implemented");
+        LOG_WARN("REQUEST message not implemented");
         peer_msg_free(msg);
         return NULL;
     case PEER_MSG_PIECE:
@@ -299,11 +295,11 @@ peer_msg_t* peer_recv_msg(int sockfd) {
         return msg;
     case PEER_MSG_CANCEL:
         // NOTE: For now, we don't receive CANCEL messages
-        LOG_WARN("[peer_msg.c] CANCEL message not implemented");
+        LOG_WARN("CANCEL message not implemented");
         peer_msg_free(msg);
         return NULL;
     default:
-        LOG_ERROR("[peer_msg.c] Invalid message type");
+        LOG_ERROR("Invalid message type");
         peer_msg_free(msg);
         return NULL;
     }
@@ -311,7 +307,7 @@ peer_msg_t* peer_recv_msg(int sockfd) {
 
 void peer_msg_free(peer_msg_t* msg) {
     if (msg == NULL) {
-        LOG_WARN("[peer_msg.c] Trying to free NULL message");
+        LOG_WARN("Trying to free NULL message");
         return;
     }
 

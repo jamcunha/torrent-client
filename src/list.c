@@ -20,13 +20,13 @@ struct list {
 static list_node_t* list_node_create(void* data, size_t size) {
     list_node_t* node = malloc(sizeof(list_node_t));
     if (node == NULL) {
-        LOG_ERROR("[list.c] Failed to allocate memory for list node");
+        LOG_ERROR("Failed to allocate memory for list node");
         return NULL;
     }
 
     node->data = malloc(size);
     if (node->data == NULL) {
-        LOG_ERROR("[list.c] Failed to allocate memory for list node data");
+        LOG_ERROR("Failed to allocate memory for list node data");
         free(node);
         return NULL;
     }
@@ -40,7 +40,7 @@ static list_node_t* list_node_create(void* data, size_t size) {
 list_t* list_create(list_free_data_fn_t data_free) {
     list_t* list = malloc(sizeof(list_t));
     if (list == NULL) {
-        LOG_ERROR("[list.c] Failed to allocate memory for list");
+        LOG_ERROR("Failed to allocate memory for list");
         return NULL;
     }
 
@@ -53,7 +53,7 @@ list_t* list_create(list_free_data_fn_t data_free) {
 
 void list_free(list_t* list) {
     if (list == NULL) {
-        LOG_WARN("[list.c] Trying to free NULL list");
+        LOG_WARN("Trying to free NULL list");
         return;
     }
 
@@ -62,12 +62,10 @@ void list_free(list_t* list) {
         list_node_t* next = current->next;
 
         if (list->data_free != NULL) {
-            LOG_DEBUG(
-                "[list.c] Freeing list node data with custom free function");
+            LOG_DEBUG("Freeing list node data with custom free function");
             list->data_free(current->data);
         } else {
-            LOG_DEBUG(
-                "[list.c] Freeing list node data with default free function");
+            LOG_DEBUG("Freeing list node data with default free function");
             free(current->data);
         }
 
@@ -80,7 +78,7 @@ void list_free(list_t* list) {
 
 int list_push(list_t* list, void* element, size_t size) {
     if (list == NULL) {
-        LOG_WARN("[list.c] Trying to push element to NULL list");
+        LOG_WARN("Trying to push element to NULL list");
         return -1;
     }
 
@@ -103,12 +101,12 @@ int list_push(list_t* list, void* element, size_t size) {
 
 void* list_at(list_t* list, size_t index) {
     if (list == NULL) {
-        LOG_WARN("[list.c] Trying to get element from NULL list");
+        LOG_WARN("Trying to get element from NULL list");
         return NULL;
     }
 
     if (index >= list->size) {
-        LOG_WARN("[list.c] Index out of bounds");
+        LOG_WARN("Index out of bounds");
         return NULL;
     }
 
@@ -122,7 +120,7 @@ void* list_at(list_t* list, size_t index) {
 
 int list_contains(list_t* list, void* element) {
     if (list == NULL) {
-        LOG_WARN("[list.c] Trying to check if element is in NULL list");
+        LOG_WARN("Trying to check if element is in NULL list");
         return 0;
     }
 
@@ -139,12 +137,12 @@ int list_contains(list_t* list, void* element) {
 
 void* list_remove(list_t* list, size_t index) {
     if (list == NULL) {
-        LOG_WARN("[list.c] Trying to remove element from NULL list");
+        LOG_WARN("Trying to remove element from NULL list");
         return NULL;
     }
 
     if (index >= list->size) {
-        LOG_WARN("[list.c] Index out of bounds");
+        LOG_WARN("Index out of bounds");
         return NULL;
     }
 

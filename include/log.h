@@ -44,13 +44,20 @@ bool will_log(log_level_t level);
  */
 void log_message(log_level_t level, const char* format, ...);
 
-// TODO: For now we are doing "[<file>] ..." manually
-//       we could do it in the macro (investigate how to add file name and line
-//       [__FILE__, ...])
+// NOTE: should log info also have the extra info?
 
-#define LOG_DEBUG(...) log_message(LOG_LEVEL_DEBUG, __VA_ARGS__)
-#define LOG_INFO(...)  log_message(LOG_LEVEL_INFO, __VA_ARGS__)
-#define LOG_WARN(...)  log_message(LOG_LEVEL_WARN, __VA_ARGS__)
-#define LOG_ERROR(...) log_message(LOG_LEVEL_ERROR, __VA_ARGS__)
+#define LOG_DEBUG(format, ...)                                               \
+    log_message(LOG_LEVEL_DEBUG, "[%s:%d (%s)] " format, __FILE__, __LINE__, \
+                __func__, ##__VA_ARGS__)
+
+#define LOG_INFO(...) log_message(LOG_LEVEL_INFO, __VA_ARGS__)
+
+#define LOG_WARN(format, ...)                                               \
+    log_message(LOG_LEVEL_WARN, "[%s:%d (%s)] " format, __FILE__, __LINE__, \
+                __func__, ##__VA_ARGS__)
+
+#define LOG_ERROR(format, ...)                                               \
+    log_message(LOG_LEVEL_ERROR, "[%s:%d (%s)] " format, __FILE__, __LINE__, \
+                __func__, ##__VA_ARGS__)
 
 #endif // !LOG_H

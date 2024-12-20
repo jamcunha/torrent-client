@@ -16,17 +16,17 @@ struct file {
 
 file_t* file_create(const char* path, size_t size) {
     if (path == NULL) {
-        LOG_WARN("[file.c] Must provide a path to create a file");
+        LOG_WARN("Must provide a path to create a file");
         return NULL;
     }
 
     file_t* file = malloc(sizeof(file_t) + strlen(path) + 1);
     if (file == NULL) {
-        LOG_ERROR("[file.c] Failed to allocate memory for file");
+        LOG_ERROR("Failed to allocate memory for file");
         return NULL;
     }
 
-    LOG_DEBUG("[file.c] Creating file `%s` with size %zu", path, size);
+    LOG_DEBUG("Creating file `%s` with size %zu", path, size);
 
     strcpy(file->path, path);
     file->size = size;
@@ -36,7 +36,7 @@ file_t* file_create(const char* path, size_t size) {
     uint8_t data[4096] = {0};
     FILE*   fp         = fopen(path, "wb");
     if (fp == NULL) {
-        LOG_ERROR("[file.c] Failed to open file `%s` in write mode", path);
+        LOG_ERROR("Failed to open file `%s` in write mode", path);
         free(file);
         return NULL;
     }
@@ -48,7 +48,7 @@ file_t* file_create(const char* path, size_t size) {
         }
 
         if (fwrite(data, 1, chunk_size, fp) != chunk_size) {
-            LOG_ERROR("[file.c] Failed to write to file `%s`", path);
+            LOG_ERROR("Failed to write to file `%s`", path);
             free(file);
             fclose(fp);
             return NULL;
@@ -58,7 +58,7 @@ file_t* file_create(const char* path, size_t size) {
     fseek(fp, 0, SEEK_END);
     size_t written = ftell(fp);
     if (written != size) {
-        LOG_ERROR("[file.c] Failed to write to file `%s`, wrote %zu bytes, "
+        LOG_ERROR("Failed to write to file `%s`, wrote %zu bytes, "
                   "expected %zu bytes",
                   path, written, size);
         free(file);
@@ -72,7 +72,7 @@ file_t* file_create(const char* path, size_t size) {
 
 size_t get_file_size(const file_t* file) {
     if (file == NULL) {
-        LOG_WARN("[file.c] Must provide a file to get its size");
+        LOG_WARN("Must provide a file to get its size");
         return 0;
     }
 
@@ -81,7 +81,7 @@ size_t get_file_size(const file_t* file) {
 
 const char* get_file_path(const file_t* file) {
     if (file == NULL) {
-        LOG_WARN("[file.c] Must provide a file to get its path");
+        LOG_WARN("Must provide a file to get its path");
         return NULL;
     }
 
@@ -90,24 +90,23 @@ const char* get_file_path(const file_t* file) {
 
 int write_data_to_file(file_t* file, size_t offset, uint8_t* data, size_t len) {
     if (file == NULL || data == NULL) {
-        LOG_WARN("[file.c] Must provide a file and data to write to the file");
+        LOG_WARN("Must provide a file and data to write to the file");
         return -1;
     }
 
     if (offset + len > file->size) {
-        LOG_ERROR("[file.c] Attempted to write data past the end of the file");
+        LOG_ERROR("Attempted to write data past the end of the file");
         return -1;
     }
 
     FILE* fp = fopen(file->path, "r+b");
     if (fp == NULL) {
-        LOG_ERROR("[file.c] Failed to open file `%s` in read/write mode",
-                  file->path);
+        LOG_ERROR("Failed to open file `%s` in read/write mode", file->path);
         return -1;
     }
 
     if (fseek(fp, offset, SEEK_SET) != 0) {
-        LOG_ERROR("[file.c] Failed to seek to offset %zu in file `%s`", offset,
+        LOG_ERROR("Failed to seek to offset %zu in file `%s`", offset,
                   file->path);
         fclose(fp);
         return -1;
@@ -118,7 +117,7 @@ int write_data_to_file(file_t* file, size_t offset, uint8_t* data, size_t len) {
         size_t written = fwrite(data + total_written, sizeof(uint8_t),
                                 len - total_written, fp);
         if (written == 0) {
-            LOG_ERROR("[file.c] Failed to write data to file `%s`", file->path);
+            LOG_ERROR("Failed to write data to file `%s`", file->path);
             fclose(fp);
             return -1;
         }
@@ -138,16 +137,16 @@ bool dir_exists(const char* path) {
 
 int create_dir(const char* path) {
     if (path == NULL) {
-        LOG_WARN("[file.c] Must provide a path to create a directory");
+        LOG_WARN("Must provide a path to create a directory");
         return -1;
     }
 
     if (dir_exists(path)) {
-        LOG_DEBUG("[file.c] Directory `%s` already exists", path);
+        LOG_DEBUG("Directory `%s` already exists", path);
         return 0;
     }
 
-    LOG_DEBUG("[file.c] Creating directory `%s`", path);
+    LOG_DEBUG("Creating directory `%s`", path);
 
     // rwxr-xr-x
     return mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);

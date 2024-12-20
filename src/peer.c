@@ -21,19 +21,19 @@
 
 static int peer_connect_socket(peer_t* peer) {
     if (peer == NULL) {
-        LOG_WARN("[peer.c] Must provide a peer");
+        LOG_WARN("Must provide a peer");
         return -1;
     }
 
     int sockfd = socket(peer->addr.sin_family, SOCK_STREAM, 0);
     if (sockfd < 0) {
-        LOG_ERROR("[peer.c] Failed to create socket");
+        LOG_ERROR("Failed to create socket");
         return -1;
     }
 
     if (connect(sockfd, (struct sockaddr*)&peer->addr, sizeof(peer->addr))
         != 0) {
-        LOG_ERROR("[peer.c] Failed to connect to peer");
+        LOG_ERROR("Failed to connect to peer");
         return -1;
     }
 
@@ -43,7 +43,7 @@ static int peer_connect_socket(peer_t* peer) {
 static int peer_send_handshake(int           sockfd,
                                const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
     if (sockfd < 0 || info_hash == NULL) {
-        LOG_WARN("[peer.c] Must provide a valid socket and info hash");
+        LOG_WARN("Must provide a valid socket and info hash");
         return -1;
     }
 
@@ -57,7 +57,7 @@ static int peer_send_handshake(int           sockfd,
            PEER_ID_SIZE);
 
     if (send(sockfd, handshake, HANDSHAKE_LEN, 0) != HANDSHAKE_LEN) {
-        LOG_ERROR("[peer.c] Failed to send handshake");
+        LOG_ERROR("Failed to send handshake");
         return -1;
     }
 
@@ -68,30 +68,30 @@ static int peer_send_handshake(int           sockfd,
 static int peer_recv_handshake(peer_t*       peer,
                                const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
     if (peer == NULL || info_hash == NULL) {
-        LOG_WARN("[peer.c] Must provide a valid peer and info hash");
+        LOG_WARN("Must provide a valid peer and info hash");
         return -1;
     }
 
     uint8_t handshake[HANDSHAKE_LEN];
 
     if (recv(peer->sockfd, handshake, HANDSHAKE_LEN, 0) != HANDSHAKE_LEN) {
-        LOG_ERROR("[peer.c] Failed to receive handshake");
+        LOG_ERROR("Failed to receive handshake");
         return -1;
     }
 
     if (handshake[0] != PROTOCOL_LEN) {
-        LOG_ERROR("[peer.c] Invalid protocol length");
+        LOG_ERROR("Invalid protocol length");
         return -1;
     }
 
     if (memcmp(handshake + 1, PROTOCOL, PROTOCOL_LEN) != 0) {
-        LOG_ERROR("[peer.c] Invalid protocol");
+        LOG_ERROR("Invalid protocol");
         return -1;
     }
 
     if (memcmp(handshake + 1 + PROTOCOL_LEN + 8, info_hash, SHA1_DIGEST_SIZE)
         != 0) {
-        LOG_ERROR("[peer.c] Invalid info hash");
+        LOG_ERROR("Invalid info hash");
         return -1;
     }
 
@@ -108,7 +108,7 @@ peer_t* peer_create(uint32_t ip, uint16_t port,
                     const uint8_t peer_id[PEER_ID_SIZE]) {
     peer_t* peer = malloc(sizeof(peer_t));
     if (peer == NULL) {
-        LOG_ERROR("[peer.c] Failed to allocate memory for peer");
+        LOG_ERROR("Failed to allocate memory for peer");
         return NULL;
     }
 
@@ -133,12 +133,12 @@ peer_t* peer_create(uint32_t ip, uint16_t port,
 
 int peer_connect(peer_t* peer, const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
     if (peer == NULL || info_hash == NULL) {
-        LOG_WARN("[peer.c] Must provide a peer and an info hash");
+        LOG_WARN("Must provide a peer and an info hash");
         return -1;
     }
 
     if (peer->sockfd != -1) {
-        LOG_WARN("[peer.c] Peer is already connected");
+        LOG_WARN("Peer is already connected");
         return -1;
     }
 
@@ -161,7 +161,7 @@ int peer_connect(peer_t* peer, const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
     }
 
     if (bitfield_msg->type != PEER_MSG_BITFIELD) {
-        LOG_ERROR("[peer.c] Expected bitfield message");
+        LOG_ERROR("Expected bitfield message");
         peer_msg_free(bitfield_msg);
         return -1;
     }
@@ -175,12 +175,12 @@ int peer_connect(peer_t* peer, const uint8_t info_hash[SHA1_DIGEST_SIZE]) {
 
 bool peer_has_piece(peer_t* peer, uint32_t index) {
     if (peer == NULL) {
-        LOG_WARN("[peer.c] Must provide a peer");
+        LOG_WARN("Must provide a peer");
         return false;
     }
 
     if (peer->bitfield == NULL) {
-        LOG_WARN("[peer.c] Peer has no bitfield");
+        LOG_WARN("Peer has no bitfield");
         return false;
     }
 
@@ -189,7 +189,7 @@ bool peer_has_piece(peer_t* peer, uint32_t index) {
 
     get_byte_result_t byte_result = byte_str_get_byte(peer->bitfield, byte);
     if (!byte_result.success) {
-        LOG_ERROR("[peer.c] Failed to get byte from bitfield");
+        LOG_ERROR("Failed to get byte from bitfield");
         return false;
     }
 
@@ -201,17 +201,17 @@ bool peer_has_piece(peer_t* peer, uint32_t index) {
 //       Complexity should be moved to torrent.c
 int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
     if (torrent == NULL || peer == NULL) {
-        LOG_WARN("[peer.c] Must provide a torrent and a peer");
+        LOG_WARN("Must provide a torrent and a peer");
         return -1;
     }
 
     if (peer->sockfd == -1) {
-        LOG_WARN("[peer.c] Peer is not connected");
+        LOG_WARN("Peer is not connected");
         return -1;
     }
 
     if (list_size(torrent->files) != 1) {
-        LOG_ERROR("[peer.c] Only single file torrents are supported");
+        LOG_ERROR("Only single file torrents are supported");
         return -1;
     }
 
@@ -286,7 +286,7 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
         switch (piece_msg->type) {
         case PEER_MSG_CHOKE:
             peer->choked = true;
-            LOG_WARN("[peer.c] Peer choked while downloading piece");
+            LOG_WARN("Peer choked while downloading piece");
             peer_msg_free(piece_msg);
             return -1;
         case PEER_MSG_UNCHOKE:
@@ -300,7 +300,7 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
         case PEER_MSG_PIECE:
             if (piece_msg->payload.piece.index != index
                 || piece_msg->payload.piece.begin != i) {
-                LOG_ERROR("[peer.c] Invalid piece message");
+                LOG_ERROR("Invalid piece message");
                 peer_msg_free(piece_msg);
                 return -1;
             }
@@ -317,7 +317,7 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
     sha1(piece, piece_length, recv_hash);
 
     if (memcmp(recv_hash, torrent->pieces[index], SHA1_DIGEST_SIZE) != 0) {
-        LOG_ERROR("[peer.c] Invalid piece hash");
+        LOG_ERROR("Invalid piece hash");
         return -1;
     }
 
@@ -335,7 +335,7 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
 
 void peer_free(peer_t* peer) {
     if (peer == NULL) {
-        LOG_WARN("[peer.c] Trying to free NULL peer");
+        LOG_WARN("Trying to free NULL peer");
         return;
     }
 

@@ -23,7 +23,7 @@ void generate_peer_id(void) {
         peer_id[i] = (uint8_t)((pid + (t >> i)) & 0xFF);
     }
 
-    LOG_DEBUG("[peer_id.c] Generated peer id: %s", peer_id);
+    LOG_DEBUG("Generated peer id: %s", peer_id);
 }
 
 const uint8_t* get_peer_id(void) {

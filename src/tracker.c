@@ -18,7 +18,7 @@
 
 static int tracker_connect(url_t* url) {
     if (url == NULL) {
-        LOG_WARN("[tracker.c] Must provide a URL");
+        LOG_WARN("Must provide a URL");
         return -1;
     }
 
@@ -37,7 +37,7 @@ static int tracker_connect(url_t* url) {
 
     int s = getaddrinfo(url->host, port, &hints, &head);
     if (s != 0) {
-        LOG_ERROR("[tracker.c] Failed to get address info for tracker: %s",
+        LOG_ERROR("Failed to get address info for tracker: %s",
                   gai_strerror(s));
         return -1;
     }
@@ -49,13 +49,13 @@ static int tracker_connect(url_t* url) {
         if ((sockfd = socket(tracker_addr->ai_family, tracker_addr->ai_socktype,
                              tracker_addr->ai_protocol))
             == -1) {
-            LOG_ERROR("[tracker.c] Failed to create socket for tracker");
+            LOG_ERROR("Failed to create socket for tracker");
             continue;
         }
 
         if (connect(sockfd, tracker_addr->ai_addr, tracker_addr->ai_addrlen)
             == -1) {
-            LOG_ERROR("[tracker.c] Failed to connect to tracker");
+            LOG_ERROR("Failed to connect to tracker");
             close(sockfd);
             continue;
         }
@@ -64,7 +64,7 @@ static int tracker_connect(url_t* url) {
     }
 
     if (tracker_addr == NULL) {
-        LOG_ERROR("[tracker.c] Failed to connect to any tracker");
+        LOG_ERROR("Failed to connect to any tracker");
         freeaddrinfo(head);
         return -1;
     }
@@ -97,7 +97,7 @@ static int url_encode_str(char* buffer, size_t size, const char* str,
 
 static char* build_http_request(url_t* url, tracker_req_t* req) {
     if (url == NULL || req == NULL) {
-        LOG_WARN("[tracker.c] Must provide a URL and a tracker request");
+        LOG_WARN("Must provide a URL and a tracker request");
         return NULL;
     }
 
@@ -176,14 +176,14 @@ static char* build_http_request(url_t* url, tracker_req_t* req) {
                         "Host: %s\r\n\r\n", url->host);
 
     if ((size_t)written >= sizeof(buffer)) {
-        LOG_ERROR("[tracker.c] HTTP request buffer too small");
+        LOG_ERROR("HTTP request buffer too small");
         return NULL;
     }
     buffer[written] = '\0';
 
     char* http_req = malloc(written + 1);
     if (http_req == NULL) {
-        LOG_ERROR("[tracker.c] Failed to allocate memory for HTTP request");
+        LOG_ERROR("Failed to allocate memory for HTTP request");
         return NULL;
     }
 
@@ -193,13 +193,13 @@ static char* build_http_request(url_t* url, tracker_req_t* req) {
 
 static int tracker_send(int sockfd, const char* http_req) {
     if (sockfd == -1 || http_req == NULL) {
-        LOG_WARN("[tracker.c] Must provide a socket file descriptor and an "
+        LOG_WARN("Must provide a socket file descriptor and an "
                  "HTTP request");
         return -1;
     }
 
     if (send(sockfd, http_req, strlen(http_req), 0) == -1) {
-        LOG_ERROR("[tracker.c] Failed to send HTTP request to tracker");
+        LOG_ERROR("Failed to send HTTP request to tracker");
         return -1;
     }
 
@@ -208,13 +208,13 @@ static int tracker_send(int sockfd, const char* http_req) {
 
 static char* extract_body_from_res(char* http_res) {
     if (http_res == NULL) {
-        LOG_WARN("[tracker.c] Must provide an HTTP response");
+        LOG_WARN("Must provide an HTTP response");
         return NULL;
     }
 
     char* body = strstr(http_res, "\r\n\r\n");
     if (body == NULL) {
-        LOG_ERROR("[tracker.c] Failed to extract body from HTTP response");
+        LOG_ERROR("Failed to extract body from HTTP response");
         return NULL;
     }
 
@@ -222,9 +222,10 @@ static char* extract_body_from_res(char* http_res) {
     return body + 4;
 }
 
+// Maybe parse full http response instead of only getting the body
 static char* tracker_recv(int sockfd) {
     if (sockfd == -1) {
-        LOG_WARN("[tracker.c] Must provide a socket file descriptor");
+        LOG_WARN("Must provide a socket file descriptor");
         return NULL;
     }
 
@@ -235,7 +236,7 @@ static char* tracker_recv(int sockfd) {
     do {
         bytes_recv = recv(sockfd, buffer, sizeof(buffer), 0);
         if (bytes_recv == -1) {
-            LOG_ERROR("[tracker.c] Failed to receive data from tracker");
+            LOG_ERROR("Failed to receive data from tracker");
             return NULL;
         }
 
@@ -247,13 +248,12 @@ static char* tracker_recv(int sockfd) {
     } while (bytes_recv > 0);
 
     if (total_recv == 0) {
-        LOG_ERROR("[tracker.c] Failed to receive data from tracker");
+        LOG_ERROR("Failed to receive data from tracker");
         return NULL;
     }
 
     if (total_recv > 4096) {
-        LOG_ERROR("[tracker.c] Tracker response larger than buffer: %ld",
-                  total_recv);
+        LOG_ERROR("Tracker response larger than buffer: %ld", total_recv);
         return NULL;
     }
 
@@ -263,7 +263,7 @@ static char* tracker_recv(int sockfd) {
     //      it won't be correctly parsed, but if we write it to a file
     //      and then read it back, it works fine (tested in debian iso torrent).
 
-    LOG_DEBUG("[tracker.c] Buffer: %s", buffer);
+    LOG_DEBUG("Buffer: %s", buffer);
 
     char* body = extract_body_from_res(buffer);
     return strndup(body, total_recv - (body - buffer));
@@ -271,7 +271,7 @@ static char* tracker_recv(int sockfd) {
 
 static list_t* parse_peer_list_compact(byte_str_t* peers_str) {
     if (peers_str == NULL) {
-        LOG_WARN("[tracker.c] Must provide a byte string");
+        LOG_WARN("Must provide a byte string");
         return NULL;
     }
 
@@ -303,8 +303,8 @@ static list_t* parse_peer_list_compact(byte_str_t* peers_str) {
             return NULL;
         }
 
-        LOG_DEBUG("[tracker.c] Peer addr: %s:%hu",
-                  inet_ntoa(peer->addr.sin_addr), ntohs(peer->addr.sin_port));
+        LOG_DEBUG("Peer addr: %s:%hu", inet_ntoa(peer->addr.sin_addr),
+                  ntohs(peer->addr.sin_port));
 
         // peer data is copied to the list, so we can free it
         free(peer);
@@ -316,7 +316,7 @@ static list_t* parse_peer_list_compact(byte_str_t* peers_str) {
 // WARN: Not tested
 static list_t* parse_peer_list_dict(list_t* peers_list) {
     if (peers_list == NULL) {
-        LOG_WARN("[tracker.c] Must provide a list of dictionaries");
+        LOG_WARN("Must provide a list of dictionaries");
         return NULL;
     }
 
@@ -329,7 +329,7 @@ static list_t* parse_peer_list_dict(list_t* peers_list) {
          it != NULL; it            = list_iterator_next(it)) {
         bencode_node_t* peer_node = list_iterator_get(it);
         if (peer_node->type != BENCODE_DICT) {
-            LOG_ERROR("[tracker.c] Invalid peer node type in tracker response");
+            LOG_ERROR("Invalid peer node type in tracker response");
             list_free(peers);
             return NULL;
         }
@@ -337,19 +337,19 @@ static list_t* parse_peer_list_dict(list_t* peers_list) {
 
         bencode_node_t* peer_id_node = dict_get(peer_dict, "peer id");
         if (peer_id_node == NULL) {
-            LOG_ERROR("[tracker.c] Missing peer ID in peer dictionary");
+            LOG_ERROR("Missing peer ID in peer dictionary");
             list_free(peers);
             return NULL;
         }
 
         if (peer_id_node->type != BENCODE_STR) {
-            LOG_ERROR("[tracker.c] Invalid peer ID type in peer dictionary");
+            LOG_ERROR("Invalid peer ID type in peer dictionary");
             list_free(peers);
             return NULL;
         }
 
         if (peer_id_node->value.s->len != PEER_ID_SIZE) {
-            LOG_ERROR("[tracker.c] Invalid peer ID length in peer dictionary");
+            LOG_ERROR("Invalid peer ID length in peer dictionary");
             list_free(peers);
             return NULL;
         }
@@ -359,13 +359,13 @@ static list_t* parse_peer_list_dict(list_t* peers_list) {
 
         bencode_node_t* ip_node = dict_get(peer_dict, "ip");
         if (ip_node == NULL) {
-            LOG_ERROR("[tracker.c] Missing IP in peer dictionary");
+            LOG_ERROR("Missing IP in peer dictionary");
             list_free(peers);
             return NULL;
         }
 
         if (ip_node->type != BENCODE_INT) {
-            LOG_ERROR("[tracker.c] Invalid IP type in peer dictionary");
+            LOG_ERROR("Invalid IP type in peer dictionary");
             list_free(peers);
             return NULL;
         }
@@ -374,13 +374,13 @@ static list_t* parse_peer_list_dict(list_t* peers_list) {
 
         bencode_node_t* port_node = dict_get(peer_dict, "port");
         if (port_node == NULL) {
-            LOG_ERROR("[tracker.c] Missing port in peer dictionary");
+            LOG_ERROR("Missing port in peer dictionary");
             list_free(peers);
             return NULL;
         }
 
         if (port_node->type != BENCODE_INT) {
-            LOG_ERROR("[tracker.c] Invalid port type in peer dictionary");
+            LOG_ERROR("Invalid port type in peer dictionary");
             list_free(peers);
             return NULL;
         }
@@ -403,8 +403,7 @@ static list_t* parse_peer_list_dict(list_t* peers_list) {
 
 tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
     if (req == NULL || announce_url == NULL) {
-        LOG_WARN(
-            "[tracker.c] Must provide a tracker request and an announce URL");
+        LOG_WARN("Must provide a tracker request and an announce URL");
         return NULL;
     }
 
@@ -414,7 +413,7 @@ tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
     }
 
     if (url->protocol == URL_PROTOCOL_UDP) {
-        LOG_ERROR("[tracker.c] UDP tracker protocol not supported yet");
+        LOG_ERROR("UDP tracker protocol not supported yet");
         url_free(url);
         return NULL;
     }
@@ -433,7 +432,7 @@ tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
     }
     url_free(url);
 
-    LOG_DEBUG("[tracker.c] HTTP request: %s", http_req);
+    LOG_DEBUG("HTTP request: %s", http_req);
 
     if (tracker_send(sockfd, http_req) == -1) {
         free(http_req);
@@ -448,7 +447,7 @@ tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
         return NULL;
     }
 
-    LOG_DEBUG("[tracker.c] Tracker response body: %s", body);
+    LOG_DEBUG("Tracker response body: %s", body);
 
     tracker_res_t* res = parse_tracker_response(body);
     if (res == NULL) {
@@ -464,13 +463,13 @@ tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
 
 tracker_req_t* tracker_request_create(torrent_t* torrent, uint16_t port) {
     if (torrent == NULL) {
-        LOG_WARN("[tracker.c] Must provide a torrent");
+        LOG_WARN("Must provide a torrent");
         return NULL;
     }
 
     tracker_req_t* req = malloc(sizeof(tracker_req_t));
     if (req == NULL) {
-        LOG_ERROR("[tracker.c] Failed to allocate memory for tracker request");
+        LOG_ERROR("Failed to allocate memory for tracker request");
         return NULL;
     }
 
@@ -503,7 +502,7 @@ tracker_req_t* tracker_request_create(torrent_t* torrent, uint16_t port) {
 
 void tracker_request_free(tracker_req_t* req) {
     if (req == NULL) {
-        LOG_WARN("[tracker.c] Trying to free NULL tracker request");
+        LOG_WARN("Trying to free NULL tracker request");
         return;
     }
 
@@ -520,7 +519,7 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
     const char*     endptr;
     bencode_node_t* node = bencode_parse(bencode_str, &endptr);
     if (node == NULL) {
-        LOG_ERROR("[tracker.c] Failed to parse tracker response");
+        LOG_ERROR("Failed to parse tracker response");
         return NULL;
     }
 
@@ -529,7 +528,7 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
 
     tracker_res_t* res = malloc(sizeof(tracker_res_t));
     if (res == NULL) {
-        LOG_ERROR("[tracker.c] Failed to allocate memory for tracker response");
+        LOG_ERROR("Failed to allocate memory for tracker response");
         bencode_free(node);
         return NULL;
     }
@@ -548,7 +547,7 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
     if (interval_node != NULL) {
         res->interval = interval_node->value.i;
     } else {
-        LOG_ERROR("[tracker.c] Missing interval in tracker response");
+        LOG_ERROR("Missing interval in tracker response");
         bencode_free(node);
         free(res->failure_reason);
         free(res->warning_message);
@@ -563,7 +562,7 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
         } else if (peers_node->type == BENCODE_STR) {
             res->peers = parse_peer_list_compact(peers_node->value.s);
         } else {
-            LOG_ERROR("[tracker.c] Invalid peers type in tracker response");
+            LOG_ERROR("Invalid peers type in tracker response");
             bencode_free(node);
             free(res->failure_reason);
             free(res->warning_message);
@@ -572,7 +571,7 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
             return NULL;
         }
     } else {
-        LOG_ERROR("[tracker.c] Missing peers in tracker response");
+        LOG_ERROR("Missing peers in tracker response");
         bencode_free(node);
         free(res->failure_reason);
         free(res->warning_message);
@@ -585,15 +584,13 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
     if (failure_reason_node != NULL) {
         res->failure_reason = strdup((char*)failure_reason_node->value.s->data);
         if (res->failure_reason == NULL) {
-            LOG_ERROR(
-                "[tracker.c] Failed to allocate memory for failure reason");
+            LOG_ERROR("Failed to allocate memory for failure reason");
             bencode_free(node);
             free(res);
             return NULL;
         }
 
-        LOG_ERROR("[tracker.c] Tracker response failure reason: %s",
-                  res->failure_reason);
+        LOG_ERROR("Tracker response failure reason: %s", res->failure_reason);
 
         tracker_response_free(res);
         bencode_free(node);
@@ -605,8 +602,7 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
         res->warning_message
             = strdup((char*)warning_message_node->value.s->data);
         if (res->warning_message == NULL) {
-            LOG_ERROR(
-                "[tracker.c] Failed to allocate memory for warning message");
+            LOG_ERROR("Failed to allocate memory for warning message");
             bencode_free(node);
             free(res->failure_reason);
             free(res);
@@ -623,7 +619,7 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
     if (tracker_id_node != NULL) {
         res->tracker_id = strdup((char*)tracker_id_node->value.s->data);
         if (res->tracker_id == NULL) {
-            LOG_ERROR("[tracker.c] Failed to allocate memory for tracker ID");
+            LOG_ERROR("Failed to allocate memory for tracker ID");
             bencode_free(node);
             free(res->failure_reason);
             free(res->warning_message);
@@ -648,7 +644,7 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
 
 void tracker_response_free(tracker_res_t* res) {
     if (res == NULL) {
-        LOG_WARN("[tracker.c] Trying to free NULL tracker response");
+        LOG_WARN("Trying to free NULL tracker response");
         return;
     }
 
