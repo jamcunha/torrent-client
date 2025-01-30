@@ -35,6 +35,14 @@ typedef struct {
 url_t* url_parse(const char* url, const char** endptr);
 
 /**
+ * @brief Connects to a given url
+ *
+ * @param url URL pointer
+ * @return socket file descriptor
+ */
+int url_connect(const url_t* url);
+
+/**
  * @brief Free the URL
  *
  * @param url The URL

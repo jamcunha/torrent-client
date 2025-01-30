@@ -4,9 +4,13 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <netdb.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 url_t* url_parse(const char* url, const char** endptr) {
     if (url == NULL) {
@@ -228,6 +232,50 @@ url_t* url_parse(const char* url, const char** endptr) {
     }
 
     return ret;
+}
+
+int url_connect(const url_t* url) {
+    if (url == NULL) {
+        LOG_WARN("Must provide a url");
+        return -1;
+    }
+
+    struct addrinfo  hints;
+    struct addrinfo *res, *rp = NULL;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype
+        = url->scheme == URL_SCHEME_UDP ? SOCK_DGRAM : SOCK_STREAM;
+    hints.ai_protocol = 0;
+    hints.ai_flags    = 0;
+
+    char port[6];
+    snprintf(port, sizeof(port), "%hu", url->port);
+
+    int s = getaddrinfo(url->host, port, &hints, &res);
+    if (s != 0) {
+        LOG_ERROR("Failed to get address info: %s", gai_strerror(s));
+        return -1;
+    }
+
+    int sockfd;
+    for (rp = res; rp != NULL; rp = rp->ai_next) {
+        sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (sockfd == -1) {
+            continue;
+        }
+
+        if (connect(sockfd, rp->ai_addr, rp->ai_addrlen) == 0) {
+            break;
+        }
+
+        close(sockfd);
+        sockfd = -1;
+    }
+
+    freeaddrinfo(res);
+    return sockfd;
 }
 
 void url_free(url_t* url) {

@@ -16,64 +16,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static int tracker_connect(url_t* url) {
-    if (url == NULL) {
-        LOG_WARN("Must provide a URL");
-        return -1;
-    }
-
-    struct addrinfo  hints;
-    struct addrinfo* head;
-
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype
-        = url->scheme == URL_SCHEME_UDP ? SOCK_DGRAM : SOCK_STREAM;
-    hints.ai_protocol
-        = url->scheme == URL_SCHEME_UDP ? IPPROTO_UDP : IPPROTO_TCP;
-
-    char port[6];
-    snprintf(port, sizeof(port), "%hu", url->port);
-
-    int s = getaddrinfo(url->host, port, &hints, &head);
-    if (s != 0) {
-        LOG_ERROR("Failed to get address info for tracker: %s",
-                  gai_strerror(s));
-        return -1;
-    }
-
-    int              sockfd;
-    struct addrinfo* tracker_addr;
-    for (tracker_addr = head; tracker_addr != NULL;
-         tracker_addr = tracker_addr->ai_next) {
-        if ((sockfd = socket(tracker_addr->ai_family, tracker_addr->ai_socktype,
-                             tracker_addr->ai_protocol))
-            == -1) {
-            LOG_ERROR("Failed to create socket for tracker");
-            continue;
-        }
-
-        if (connect(sockfd, tracker_addr->ai_addr, tracker_addr->ai_addrlen)
-            == -1) {
-            LOG_ERROR("Failed to connect to tracker");
-            close(sockfd);
-            continue;
-        }
-
-        break;
-    }
-
-    if (tracker_addr == NULL) {
-        LOG_ERROR("Failed to connect to any tracker");
-        freeaddrinfo(head);
-        return -1;
-    }
-    freeaddrinfo(head);
-
-    LOG_INFO("Successfully connected to tracker: %s", url->host);
-    return sockfd;
-}
-
 inline static bool is_valid_url_char(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
            || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_'
@@ -421,7 +363,7 @@ tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
         return NULL;
     }
 
-    int sockfd = tracker_connect(url);
+    int sockfd = url_connect(url);
     if (sockfd == -1) {
         url_free(url);
         return NULL;
