@@ -28,9 +28,9 @@ static int tracker_connect(url_t* url) {
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype
-        = url->protocol == URL_PROTOCOL_UDP ? SOCK_DGRAM : SOCK_STREAM;
+        = url->scheme == URL_SCHEME_UDP ? SOCK_DGRAM : SOCK_STREAM;
     hints.ai_protocol
-        = url->protocol == URL_PROTOCOL_UDP ? IPPROTO_UDP : IPPROTO_TCP;
+        = url->scheme == URL_SCHEME_UDP ? IPPROTO_UDP : IPPROTO_TCP;
 
     char port[6];
     snprintf(port, sizeof(port), "%hu", url->port);
@@ -407,12 +407,15 @@ tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
         return NULL;
     }
 
-    url_t* url = url_parse(announce_url);
+    const char* endptr = announce_url;
+    url_t*      url    = url_parse(announce_url, &endptr);
     if (url == NULL) {
         return NULL;
     }
 
-    if (url->protocol == URL_PROTOCOL_UDP) {
+    assert(endptr);
+
+    if (url->scheme == URL_SCHEME_UDP) {
         LOG_ERROR("UDP tracker protocol not supported yet");
         url_free(url);
         return NULL;

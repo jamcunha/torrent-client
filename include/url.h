@@ -3,26 +3,36 @@
 
 #include <stdint.h>
 
+// Schemes used in Bittorrent client
 typedef enum {
-    URL_PROTOCOL_HTTP,
-    URL_PROTOCOL_HTTPS,
-    URL_PROTOCOL_UDP
-} protocol_t;
+    URL_SCHEME_HTTP,
+    URL_SCHEME_HTTPS,
+    URL_SCHEME_UDP
+} scheme_t;
 
 typedef struct {
-    protocol_t protocol;
-    char*      host;
-    char*      path;
-    uint16_t   port;
+    scheme_t scheme;
+    char*    user;
+    char*    password;
+    char*    host;
+    uint16_t port;
+    char*    path;
+    char*    queries; // TODO: Better queries support
 } url_t;
 
 /**
  * @brief Parse a URL
  *
+ * Syntax:
+ * scheme : // user : password @ host : port / path ? query # fragment
+ *          (           authority           )
+ *             (   userinfo   )
+ *
  * @param url The URL to parse
+ * @param endptr Pointer to the character after parsed string
  * @return url_t* The parsed URL
  */
-url_t* url_parse(const char* url);
+url_t* url_parse(const char* url, const char** endptr);
 
 /**
  * @brief Free the URL

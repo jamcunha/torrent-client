@@ -2,83 +2,232 @@
 
 #include "log.h"
 
+#include <assert.h>
+#include <ctype.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
-url_t* url_parse(const char* url) {
+url_t* url_parse(const char* url, const char** endptr) {
     if (url == NULL) {
         LOG_WARN("Must provide a URL");
         return NULL;
     }
 
-    url_t* parsed = malloc(sizeof(url_t));
-    if (parsed == NULL) {
+    url_t* ret = malloc(sizeof(url_t));
+    if (ret == NULL) {
         LOG_ERROR("Failed to allocate memory for URL");
         return NULL;
     }
 
-    if (strncmp(url, "http://", 7) == 0) {
-        parsed->protocol = URL_PROTOCOL_HTTP;
-        url += 7;
-    } else if (strncmp(url, "https://", 8) == 0) {
-        parsed->protocol = URL_PROTOCOL_HTTPS;
-        url += 8;
-    } else if (strncmp(url, "udp://", 6) == 0) {
-        parsed->protocol = URL_PROTOCOL_UDP;
-        url += 6;
-    } else {
-        LOG_WARN("Invalid URL protocol");
-        free(parsed);
+    ret->user     = NULL;
+    ret->password = NULL;
+    ret->host     = NULL;
+    ret->port     = 0;
+    ret->path     = NULL;
+    ret->queries  = NULL;
+
+    // temp value to parse url fragment if exists
+    char* fragment = NULL;
+
+    if (endptr == NULL) {
+        *endptr = url;
+    }
+
+    // Validate schema
+    while (**endptr != '\0' && **endptr != ':') {
+        (*endptr)++;
+    }
+
+    if (**endptr == '\0') {
+        LOG_ERROR("URL has no scheme");
         return NULL;
     }
 
-    const char* hostnanme_end = url;
-    while (*hostnanme_end != '\0' && *hostnanme_end != '/'
-           && *hostnanme_end != ':') {
-        hostnanme_end++;
-    }
+    assert(**endptr == ':');
+    (*endptr)++;
 
-    parsed->host = malloc(hostnanme_end - url + 1);
-    if (parsed->host == NULL) {
-        LOG_ERROR("Failed to allocate memory for hostname");
-        free(parsed);
+    if (strncmp(url, "http", 4) == 0) {
+        ret->scheme = URL_SCHEME_HTTP;
+    } else if (strncmp(url, "https", 5) == 0) {
+        ret->scheme = URL_SCHEME_HTTPS;
+    } else if (strncmp(url, "udp", 3) == 0) {
+        ret->scheme = URL_SCHEME_UDP;
+    } else {
+        LOG_ERROR("Invalid URL scheme: %s", url);
+        free(ret);
         return NULL;
     }
-    memcpy(parsed->host, url, hostnanme_end - url);
-    parsed->host[hostnanme_end - url] = '\0';
 
-    url = hostnanme_end;
-
-    if (*url == ':') {
-        url++;
-        parsed->port = (uint16_t)strtol(url, (char**)&url, 10);
+    if (**endptr != '/' || *(*endptr + 1) != '/') {
+        ret->path = strdup(*endptr);
     } else {
-        if (parsed->protocol == URL_PROTOCOL_HTTP) {
-            parsed->port = 80;
-        } else if (parsed->protocol == URL_PROTOCOL_HTTPS) {
-            parsed->port = 443;
-        } else if (parsed->protocol == URL_PROTOCOL_UDP) {
-            // No default port
-            parsed->port = 0;
+        // skip "//"
+        (*endptr) += 2;
+
+        if (**endptr != '\0') {
+            ret->host = ret->user = (char*)*endptr;
         }
     }
 
-    const char* path_end = url;
-    while (*path_end != '\0') {
-        path_end++;
+    while (**endptr != '\0') {
+        switch (**endptr) {
+        case ':':
+            if (ret->port != 0 || ret->path || ret->queries) {
+                break;
+            }
+
+            for (uint8_t i = 1; (*endptr)[i] != '\0'; ++i) {
+                char c = (*endptr)[i];
+
+                if (c == '/') {
+                    if (ret->host == ret->user) {
+                        ret->user = NULL;
+                    }
+
+                    ret->host = strndup(ret->host, *endptr - ret->host);
+                    *endptr += i;
+                    break;
+                } else if (!isdigit(c)) {
+                    ret->port = 0;
+                    break;
+                } else {
+                    ret->port = 10 * ret->port + (c - '0');
+                }
+            }
+
+            if (ret->port == 0) {
+                ret->user = strndup(ret->user, *endptr - ret->user);
+
+                (*endptr)++;
+
+                ret->password = (char*)*endptr;
+                ret->host     = NULL;
+            }
+
+            break;
+        case '@':
+            if ((ret->host && ret->host != ret->user) || ret->path
+                || ret->queries || fragment) {
+                (*endptr)++;
+                break;
+            }
+
+            if (ret->user == NULL) {
+                LOG_ERROR("Invalid userinfo");
+                url_free(ret);
+                return NULL;
+            }
+
+            ret->password = strndup(ret->password, *endptr - ret->password);
+
+            (*endptr)++;
+            ret->host = (char*)*endptr;
+
+            break;
+        case '[':
+            if (ret->host != ret->user || ret->path || ret->queries
+                || fragment) {
+                (*endptr)++;
+                break;
+            }
+
+            while (**endptr != '\0' && **endptr != ']') {
+                (*endptr)++;
+            }
+
+            break;
+        case '/':
+            // Part of the path
+            if (ret->path || ret->queries) {
+                (*endptr)++;
+                break;
+            }
+
+            if (ret->host == NULL) {
+                LOG_ERROR("Expected host before the path");
+                LOG_WARN("DEBUG URL:\n");
+                LOG_WARN("scheme: %d", ret->scheme);
+                LOG_WARN("user: %s", ret->user);
+                LOG_WARN("password: %s", ret->password);
+                LOG_WARN("host: %s", ret->host);
+                LOG_WARN("port: %d", ret->port);
+                LOG_WARN("path: %s", ret->path);
+                LOG_WARN("queries: %s", ret->queries);
+                url_free(ret);
+                return NULL;
+            }
+
+            if (ret->host == ret->user) {
+                ret->user = NULL;
+            }
+
+            ret->host = strndup(ret->host, *endptr - ret->host);
+
+            ret->path = (char*)*endptr;
+            break;
+        case '?':
+            if (ret->path == NULL) {
+                LOG_ERROR("Expected path before queries");
+                url_free(ret);
+                return NULL;
+            }
+
+            // Queries are parsed afterwards so no need to check for more '?'
+            if (ret->queries) {
+                (*endptr)++;
+                break;
+            }
+
+            ret->path = strndup(ret->path, *endptr - ret->path);
+
+            (*endptr)++;
+            ret->queries = (char*)*endptr;
+
+            break;
+        case '#':
+            if (ret->path == NULL) {
+                LOG_ERROR("Expected path before fragments");
+                url_free(ret);
+                return NULL;
+            }
+
+            if (fragment) {
+                (*endptr)++;
+                break;
+            }
+
+            if (ret->queries == NULL) {
+                ret->path = strndup(ret->path, *endptr - ret->path);
+            } else {
+                ret->queries = strndup(ret->queries, *endptr - ret->queries);
+            }
+
+            (*endptr)++;
+            fragment = (char*)*endptr;
+            break;
+        default:
+            (*endptr)++;
+        }
     }
 
-    parsed->path = malloc(path_end - url + 1);
-    if (parsed->path == NULL) {
-        LOG_ERROR("Failed to allocate memory for path");
-        free(parsed->host);
-        free(parsed);
-        return NULL;
+    if (ret->path && ret->queries == NULL && fragment == NULL) {
+        ret->path = strndup(ret->path, *endptr - ret->path);
     }
-    memcpy(parsed->path, url, path_end - url);
-    parsed->path[path_end - url] = '\0';
 
-    return parsed;
+    if (ret->queries && fragment == NULL) {
+        ret->queries = strndup(ret->queries, *endptr - ret->queries);
+    }
+
+    if (ret->port == 0) {
+        if (ret->scheme == URL_SCHEME_HTTP) {
+            ret->port = 80;
+        } else if (ret->scheme == URL_SCHEME_HTTPS) {
+            ret->port = 443;
+        }
+    }
+
+    return ret;
 }
 
 void url_free(url_t* url) {
@@ -87,7 +236,10 @@ void url_free(url_t* url) {
         return;
     }
 
+    free(url->user);
+    free(url->password);
     free(url->host);
     free(url->path);
+    free(url->queries);
     free(url);
 }
