@@ -168,6 +168,7 @@ url_t* url_parse(const char* url, const char** endptr) {
 
             ret->host = strndup(ret->host, *endptr - ret->host);
 
+            (*endptr)++;
             ret->path = (char*)*endptr;
             break;
         case '?':
