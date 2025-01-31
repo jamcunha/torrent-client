@@ -2,6 +2,7 @@
 
 #include "bencode.h"
 #include "dict.h"
+#include "http.h"
 #include "list.h"
 #include "log.h"
 #include "peer.h"
@@ -10,11 +11,14 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <netdb.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#define BUFFER_SIZE 4096
 
 inline static bool is_valid_url_char(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
@@ -37,19 +41,17 @@ static int url_encode_str(char* buffer, size_t size, const char* str,
     return written;
 }
 
-static char* build_http_request(url_t* url, tracker_req_t* req) {
+static void add_queries_to_url(url_t* url, tracker_req_t* req) {
     if (url == NULL || req == NULL) {
         LOG_WARN("Must provide a URL and a tracker request");
-        return NULL;
+        return;
     }
 
     int  written = 0;
-    char buffer[4096];
-
-    written += snprintf(buffer, sizeof(buffer), "GET %s", url->path);
+    char buffer[BUFFER_SIZE];
 
     written
-        += snprintf(buffer + written, sizeof(buffer) - written, "?info_hash=");
+        += snprintf(buffer + written, sizeof(buffer) - written, "info_hash=");
     written += url_encode_str(buffer + written, sizeof(buffer) - written,
                               (char*)req->info_hash, SHA1_DIGEST_SIZE);
 
@@ -112,103 +114,30 @@ static char* build_http_request(url_t* url, tracker_req_t* req) {
                             "&trackerid=%s", req->tracker_id);
     }
 
-    written += snprintf(buffer + written, sizeof(buffer) - written,
-                        " HTTP/1.1\r\n");
-    written += snprintf(buffer + written, sizeof(buffer) - written,
-                        "Host: %s\r\n\r\n", url->host);
-
     if ((size_t)written >= sizeof(buffer)) {
         LOG_ERROR("HTTP request buffer too small");
-        return NULL;
+        return;
     }
     buffer[written] = '\0';
 
-    char* http_req = malloc(written + 1);
-    if (http_req == NULL) {
-        LOG_ERROR("Failed to allocate memory for HTTP request");
-        return NULL;
-    }
+    if (url->queries) {
+        size_t queries_len = strlen(url->queries);
+        char*  new_queries = calloc(queries_len + written + 1, sizeof(char));
 
-    strcpy(http_req, buffer);
-    return http_req;
-}
-
-static int tracker_send(int sockfd, const char* http_req) {
-    if (sockfd == -1 || http_req == NULL) {
-        LOG_WARN("Must provide a socket file descriptor and an "
-                 "HTTP request");
-        return -1;
-    }
-
-    if (send(sockfd, http_req, strlen(http_req), 0) == -1) {
-        LOG_ERROR("Failed to send HTTP request to tracker");
-        return -1;
-    }
-
-    return 0;
-}
-
-static char* extract_body_from_res(char* http_res) {
-    if (http_res == NULL) {
-        LOG_WARN("Must provide an HTTP response");
-        return NULL;
-    }
-
-    char* body = strstr(http_res, "\r\n\r\n");
-    if (body == NULL) {
-        LOG_ERROR("Failed to extract body from HTTP response");
-        return NULL;
-    }
-
-    // +4 to skip the \r\n\r\n
-    return body + 4;
-}
-
-// Maybe parse full http response instead of only getting the body
-static char* tracker_recv(int sockfd) {
-    if (sockfd == -1) {
-        LOG_WARN("Must provide a socket file descriptor");
-        return NULL;
-    }
-
-    char    buffer[4096];
-    ssize_t total_recv = 0;
-    ssize_t bytes_recv = 0;
-
-    do {
-        bytes_recv = recv(sockfd, buffer, sizeof(buffer), 0);
-        if (bytes_recv == -1) {
-            LOG_ERROR("Failed to receive data from tracker");
-            return NULL;
+        if (snprintf(new_queries, queries_len + written + 1, "%s&%s",
+                     url->queries, buffer)
+            != (int)queries_len + 1) {
+            LOG_ERROR("Error moving data to a new queries string");
+            free(new_queries);
+            return;
         }
 
-        total_recv += bytes_recv;
-
-        if (bytes_recv < 4096) {
-            break;
-        }
-    } while (bytes_recv > 0);
-
-    if (total_recv == 0) {
-        LOG_ERROR("Failed to receive data from tracker");
-        return NULL;
+        free(url->queries);
+        url->queries = new_queries;
+    } else {
+        url->queries = calloc(written + 1, sizeof(char));
+        memcpy(url->queries, buffer, written);
     }
-
-    if (total_recv > 4096) {
-        LOG_ERROR("Tracker response larger than buffer: %ld", total_recv);
-        return NULL;
-    }
-
-    buffer[total_recv] = '\0';
-
-    // BUG: For some reason, when returning the response body in a buffer,
-    //      it won't be correctly parsed, but if we write it to a file
-    //      and then read it back, it works fine (tested in debian iso torrent).
-
-    LOG_DEBUG("Buffer: %s", buffer);
-
-    char* body = extract_body_from_res(buffer);
-    return strndup(body, total_recv - (body - buffer));
 }
 
 static list_t* parse_peer_list_compact(byte_str_t* peers_str) {
@@ -355,7 +284,7 @@ tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
         return NULL;
     }
 
-    assert(endptr);
+    assert(*endptr == '\0');
 
     if (url->scheme == URL_SCHEME_UDP) {
         LOG_ERROR("UDP tracker protocol not supported yet");
@@ -363,46 +292,47 @@ tracker_res_t* tracker_announce(tracker_req_t* req, const char* announce_url) {
         return NULL;
     }
 
+    add_queries_to_url(url, req);
     int sockfd = url_connect(url);
     if (sockfd == -1) {
         url_free(url);
         return NULL;
     }
 
-    char* http_req = build_http_request(url, req);
-    if (http_req == NULL) {
+    if (http_send_get_request(sockfd, url, NULL) == -1) {
         url_free(url);
         close(sockfd);
         return NULL;
     }
     url_free(url);
 
-    LOG_DEBUG("HTTP request: %s", http_req);
-
-    if (tracker_send(sockfd, http_req) == -1) {
-        free(http_req);
-        close(sockfd);
-        return NULL;
-    }
-    free(http_req);
-
-    char* body = tracker_recv(sockfd);
-    if (body == NULL) {
-        close(sockfd);
-        return NULL;
-    }
-
-    LOG_DEBUG("Tracker response body: %s", body);
-
-    tracker_res_t* res = parse_tracker_response(body);
-    if (res == NULL) {
-        free(body);
-        close(sockfd);
-        return NULL;
-    }
-
-    free(body);
+    http_response_t* http_res = http_recv_response(sockfd);
     close(sockfd);
+    if (http_res == NULL) {
+        return NULL;
+    }
+
+    if (http_res->status_code != 200) {
+        LOG_ERROR("Non 200 response: %hu", http_res->status_code);
+        http_response_free(http_res);
+        return NULL;
+    }
+
+    if (http_res->body == NULL) {
+        LOG_ERROR("Could not find body in http response");
+        http_response_free(http_res);
+        return NULL;
+    }
+
+    LOG_DEBUG("Tracker response body: %s", http_res->body);
+
+    tracker_res_t* res = parse_tracker_response((char*)http_res->body);
+    if (res == NULL) {
+        http_response_free(http_res);
+        return NULL;
+    }
+
+    http_response_free(http_res);
     return res;
 }
 
@@ -436,8 +366,7 @@ tracker_req_t* tracker_request_create(torrent_t* torrent, uint16_t port) {
 
     // IP is not supported yet
 
-    // NOTE: For now just use the default (50)
-    req->numwant = torrent->max_peers;
+    req->numwant = 0;
 
     req->key        = NULL;
     req->tracker_id = NULL;
@@ -457,10 +386,6 @@ void tracker_request_free(tracker_req_t* req) {
 }
 
 tracker_res_t* parse_tracker_response(char* bencode_str) {
-    // BUG: For some reason, when returning the response body in a buffer,
-    //      it won't be correctly parsed, but if we write it to a file
-    //      and then read it back, it works fine (tested in debian iso torrent).
-
     const char*     endptr;
     bencode_node_t* node = bencode_parse(bencode_str, &endptr);
     if (node == NULL) {

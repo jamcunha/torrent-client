@@ -90,13 +90,12 @@ int main(int argc, char** argv) {
     }
 
     tracker_res_t* res = tracker_announce(req, torrent->announce);
+    tracker_request_free(req);
     if (res == NULL) {
         LOG_ERROR("Failed to announce to tracker");
-        tracker_request_free(req);
         torrent_free(torrent);
         return 1;
     }
-    tracker_request_free(req);
 
     LOG_INFO("Tracker response:");
     LOG_INFO("  Failure reason: %s", res->failure_reason);
