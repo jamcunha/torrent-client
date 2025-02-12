@@ -7,6 +7,7 @@
 #include "log.h"
 #include "sha1.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,6 +54,8 @@ static bencode_node_t* torrent_file_parse(const char* filename) {
         fclose(fp);
         return NULL;
     }
+
+    assert(*endptr == '\0');
 
     LOG_DEBUG("Closing file `%s`", filename);
 

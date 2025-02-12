@@ -393,6 +393,7 @@ tracker_res_t* parse_tracker_response(char* bencode_str) {
         return NULL;
     }
 
+    assert(*endptr == '\0');
     assert(node->type == BENCODE_DICT && "Expected a dictionary node");
     dict_t* dict = node->value.d;
 
