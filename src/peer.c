@@ -234,7 +234,9 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
             peer->choked = false;
             break;
         case PEER_MSG_CHOKE:
-            assert(0 && "Peer sent CHOKE msg while choked");
+            assert(0
+                   && "Peer sent CHOKE msg while choked, TODO: sleep and try "
+                      "later");
             break;
         case PEER_MSG_HAVE:
             // TODO: update needed pieces
@@ -294,6 +296,7 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
         case PEER_MSG_HAVE:
             // TODO: update needed pieces
             //     for now assume peer has all pieces
+            LOG_WARN("Received HAVE message while waiting for PIECE");
             break;
         case PEER_MSG_BITFIELD:
             assert(0 && "Should not receive bitfield message after handshake");
@@ -317,7 +320,18 @@ int download_piece(peer_t* peer, torrent_t* torrent, uint32_t index) {
     sha1(piece, piece_length, recv_hash);
 
     if (memcmp(recv_hash, torrent->pieces[index], SHA1_DIGEST_SIZE) != 0) {
-        LOG_ERROR("Invalid piece hash");
+        char exp[SHA1_DIGEST_SIZE * 2 + 1] = {0};
+        char got[SHA1_DIGEST_SIZE * 2 + 1] = {0};
+
+        int exp_walk = 0;
+        int got_walk = 0;
+        for (int i = 0; i < SHA1_DIGEST_SIZE; ++i) {
+            exp_walk
+                += sprintf(exp + exp_walk, "%02x", torrent->pieces[index][i]);
+            got_walk += sprintf(got + got_walk, "%02x", recv_hash[i]);
+        };
+
+        LOG_ERROR("Invalid piece hash, expected %s, got %s", exp, got);
         return -1;
     }
 
